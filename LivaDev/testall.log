@@ -1,0 +1,7 @@
+/usr/bin/lli
+
+###### Testing test-hello.liva
+./liva.native < test-hello.liva > test-hello.liva.ll
+lli test-hello.liva.ll > test-hello.liva.out
+diff -b test-hello.liva.out test-hello.liva.out > test-hello.liva.diff
+###### SUCCESS

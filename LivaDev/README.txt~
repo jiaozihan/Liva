@@ -1,0 +1,32 @@
+Task : Hello World implementation
+Due Date: 8/1/2016
+
+
+------------------------------
+Installation under Ubuntu 15.10
+
+LLVM 3.6 is the default under 15.10, so we ask for a matching version of the
+OCaml library.
+
+sudo apt-get install -y ocaml m4 llvm opam
+opam init
+opam install llvm.3.6 ocamlfind
+eval `opam config env`
+
+make
+./testhello.sh
+
+------------------------------
+This source code is cloned from microC project and need modification
+
+1. The char and string data types have not been implemented yet
+so we need to add char and string data types first
+
+2. The main fucntion from microC is a C style, we need to modify it to Java Style
+
+
+
+
+
+
+
