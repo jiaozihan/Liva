@@ -3,7 +3,7 @@
 	let depth = ref 0
 	
 	let unescape s =
-		Scanf.sscanf ("\"" ^ s ^ "\"") "%S%!" (fun x -> x)
+		Scanf.sscanf (""" ^ s ^ """) "%S%!" (fun x -> x)
 }
 
 let whitespace = [' ' '\t'  '\r' '\n']
@@ -14,8 +14,8 @@ let digit = ['0'-'9']
 let id = alpha (alpha | digit | '_')*
 let int = digit+
 let float = (digit+) '.' (digit+)
-let char = ''' ( ascii) '''
-let escape = '\\' ['\\' ''' '"' 'n' 'r' 't']
+let char = '\'' ( ascii) '\''
+let escape = '\\' ['\\' '\'' '"' 'n' 'r' 't']
 let escape_char = ''' (escape) '''
 let string = '"' ( (ascii | escape)* as s) '"'
 
