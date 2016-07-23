@@ -21,7 +21,7 @@ type expr =
 	| 	ArrayAccess of expr * expr list
 	| 	ObjAccess of expr * expr
 	| 	Call of string * expr list  
-	|       ObjectCreate of string * expr list
+	|   ObjectCreate of string * expr list
 	|  	Unop of op * expr
 	| 	Null
 
@@ -33,8 +33,8 @@ type stmt =
 	| 	For of expr * expr * expr * stmt
 	| 	While of expr * stmt
 	|  	Break
-	|       Continue
-	|       Local of datatype * string * expr
+	|   Continue
+	|   Local of datatype * string * expr
 
 type field = Field of datatype * string
 type import_stmt = Import of string
