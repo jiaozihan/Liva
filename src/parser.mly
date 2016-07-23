@@ -47,7 +47,7 @@ include_list:
   	| 	include_list include_decl { $2::$1 }
 
 include_decl:
-	IMPORT LPAREN STRING_LITERAL RPAREN SEMI { Import($3) }
+	IMPORT STRING_LITERAL SEMI { Import($2) }
 
 
 /******************
@@ -263,9 +263,3 @@ literals:
 	| ID 			   		{ Id($1) }	
 	| NULL				    { Null }
 
-
-/* ARRAY LITERALS */
-
-array_prim:
-		expr 					{ [$1] }
-	|	array_prim COMMA expr 	{ $3 :: $1 }
