@@ -22,7 +22,7 @@ make clean
 make liva
 ./liva <test-hello.liva> test-hello.ll
 
-lli test-hello.ll (it will show lli test-hello.ll. this is because functions are not declared yet!!!)
+lli test-hello.ll (it will show 'main' function not found in module. this is because functions are not declared yet!!!)
 
 
 ------------------------------
