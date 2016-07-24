@@ -47,7 +47,7 @@ include_list:
   	| 	include_list include_decl { $2::$1 }
 
 include_decl:
-	IMPORT STRING_LITERAL SEMI { Import($2) }
+	IMPORT LPAREN STRING_LITERAL RPAREN SEMI { Import($3) }
 
 
 /******************
@@ -262,4 +262,6 @@ literals:
 	| THIS 			   		{ This }
 	| ID 			   		{ Id($1) }	
 	| NULL				    { Null }
+
+
 
