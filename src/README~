@@ -24,6 +24,13 @@ make liva
 
 lli test-hello.ll (it will show 'main' function not found in module. This is because functions are not declared yet!!!)
 
+Also could user : 
+
+make clean
+make
+
+./liva.native < test-hello.liva
+
 
 ------------------------------
 7/24/2016 RECORD
