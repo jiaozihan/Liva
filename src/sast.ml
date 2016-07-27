@@ -31,14 +31,14 @@ type sstmt =
 	|       SContinue
 	|       SLocal of datatype * string * sexpr
 
-type ftype = User | Reserved
+type func_type = User | Reserved
 
 type sfunc_decl = {
 	sfname : fname;
-	sreturn_t : datatype;
+	sreturnType : datatype;
 	sformals : formal list;
 	sbody : sstmt list;
-	ftype : func_type;
+	func_type : func_type;
 	source : string;
 }
 
