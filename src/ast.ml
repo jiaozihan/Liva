@@ -1,5 +1,6 @@
 type op = Add | Sub | Mult | Div | Equal | Neq | Less | Leq | Greater | Geq | And | Not | Or | Mod
 type primitive = Int_t | Float_t | Void_t | Bool_t | Char_t | String_t | Objecttype of string | ConstructorType | Null_t
+
 type datatype = Arraytype of primitive * int | Datatype of primitive
 
 type extends = NoParent | Parent of string
