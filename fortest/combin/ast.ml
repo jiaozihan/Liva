@@ -1,7 +1,8 @@
 type op = Add | Sub | Mult | Div | Equal | Neq | Less | Leq | Greater | Geq | And | Not | Or | Mod
-type primitive = Int_t | Float_t | Void_t | Bool_t | Char_t | String_t | Objecttype of string | ConstructorType | Null_t
 
-type datatype = Arraytype of primitive * int | Datatype of primitive | Any
+type primitive = Int_t | Float_t | Void_t | Bool_t | Char_t | String_t | Objecttype of string | ConstructorType | Null_t 
+
+type datatype = Arraytype of primitive * int | Datatype of primitive |Any
 
 type extends = NoParent | Parent of string
 type fname = Constructor | FName of string
@@ -45,6 +46,7 @@ type func_decl = {
 	returnType : datatype;
 	formals : formal list;
 	body : stmt list;
+	
 }
 
 type cbody = {
@@ -81,6 +83,9 @@ let rec print_brackets = function
 		1 -> "[]"
 	| 	a -> "[]" ^ print_brackets (a - 1)
 
+let string_of_expr e = "remain to be completed"
+
 let string_of_datatype = function (*datatype*)
 		Arraytype(p, i)	-> (string_of_primitive p) ^ (print_brackets i)
 	| 	Datatype(p)		-> (string_of_primitive p)
+

@@ -62,7 +62,14 @@ let default_sc cname =
 	source 		= "NA";
 }
 
-let get_ID_type env s = 
+let get_name cname fdecl = (*get the name of function,cname.constructor-> constructor / cname.xxx-> normal_function / main*)
+	let name = string_of_fname fdecl.fname (*tell constructor from normal function*)
+	in
+	if name = "main" 
+		then "main"
+	else cname ^ "." ^ name
+
+let rec get_ID_type env s = 
 	try
 		StringMap.find s env.env_locals
 	with
@@ -85,7 +92,7 @@ and check_array_init env d el =
 	in
 		let convert_d_to_arraytype = function(*check whether the type is array*)
 			   Datatype(x) -> Arraytype(x, array_complexity)
-			|  _ as t      -> raise (Failure ("ArrayInitTypeInvalid: " ^ string_of_datatype t))
+			|  _ as t      -> raise (Failure ("ArrayInitTypeInvalid: " ^ (string_of_datatype t)))
 		in
 			let sexpr_type = convert_d_to_arraytype d
 			in
@@ -115,81 +122,12 @@ and check_array_access env e el =
 											  else if num_params = n
 												then Datatype(t)
 											  else raise (Failure ("ArrayAccessInvalidParamLength: " ^ (string_of_int num_params) ^ " > " ^ (string_of_int n)))
-						|  _ as t          -> raise (Failure ("ArrayAccessExpressionNotArray: " ^ (Utils.string_of_datatype t)))	
+						|  _ as t          -> raise (Failure ("ArrayAccessExpressionNotArray: " ^ (string_of_datatype t)))	
 					in
 						let sexpr_type = check_array_dim_vs_params array_dimensions se_type
 						in
 							let sel = List.map check_elem_type el
 							in SArrayAccess(se, sel, sexpr_type)
-
-and check_obj_access env lhs rhs = (*...不大明白*)
-	let check_lhs = function(*检查 '.' 左侧*)
-		This 			    -> SId("this", Datatype(Objecttype(env.env_name)))
-	|	Id s 			    -> SId(s, get_ID_type env s)
-	| 	ArrayAccess(e, el)	-> check_array_access env e el
-	| 	_ as e 	-> raise (Failure ("LHSofRootAccessMustBeIDorFunc: " ^ (string_of_expr e))) 
-	in
-	let ptype_name parent_type = match parent_type with
-			Datatype(Objecttype(name)) 	-> name
-		| 	_ as d						-> raise (Failure ("ObjAccessMustHaveObjectType: " ^ (Utils.string_of_datatype d)))
-	in
-	let rec check_rhs (env) parent_type (top_level_env) = 
-		let pt_name = ptype_name parent_type
-		in
-			let get_id_type_from_object env (id) cname tlenv = 
-				let cmap = StringMap.find cname env.env_class_maps
-				in	
-					try    StringMap.find id cmap.field_map 
-					with | Not_found -> raise (Failure ("UnknownIdentifierForClass: " ^ id ^ " -> " ^ cname))
-			in
-				function
-					Id s 				-> SId(s, (get_id_type_from_object env s pt_name top_level_env)), env
-			    |	Call(fname, el) 	-> let env = update_env_name env pt_name
-										   in
-											check_call_type top_level_env true env fname el, env
-				| 	ObjAccess(e1, e2) 	-> 
-						let old_env = env 
-						in
-							let lhs, env = check_rhs env parent_type top_level_env e1 
-							in
-								let lhs_type = get_type_from_sexpr lhs 
-								in
-									let pt_name = ptype_name lhs_type
-									in
-										let lhs_env = update_env_name env pt_name 
-										in
-											let rhs, env = check_rhs lhs_env lhs_type top_level_env e2
-											in
-												let rhs_type = get_type_from_sexpr rhs
-												in
-													SObjAccess(lhs, rhs, rhs_type), old_env
-				| 	_ as e				-> raise (Failure ("InvalidAccessLHS: " ^ (Utils.string_of_expr e)))
-	in 
-		let arr_lhs, _ = expr_to_sexpr env lhs
-		in
-			let arr_lhs_type = get_type_from_sexpr arr_lhs
-			in
-				match arr_lhs_type with
-					Arraytype(Char_t, 1) -> raise (Failure ("CannotAccessLengthOfCharArray"))
-				|	Arraytype(_, _)      -> let rhs =
-												match rhs with
-													   Id("length") -> SId("length", Datatype(Int_t))
-													| 	_           -> raise (Failure ("CanOnlyAccessLengthOfArray"))
-											in
-												SObjAccess(arr_lhs, rhs, Datatype(Int_t))
-				|   _                    -> let lhs = check_lhs lhs
-											in
-												let lhs_type = get_type_from_sexpr lhs
-												in 
-													let ptype_name = ptype_name lhs_type
-													in
-														let lhs_env = update_env_name env ptype_name
-														in
-															let rhs, _ = check_rhs lhs_env lhs_type env rhs
-															in
-																let rhs_type = get_type_from_sexpr rhs
-																in
-																	SObjAccess(lhs, rhs, rhs_type)
 
 and check_call_type top_level_env isObjAccess env fname el = (*top_level_env 参数可以去掉, 判断scope 才用,Liva 全 public*)
 	let sel, env = exprl_to_sexprl env el(*convert expression list to sexpression list*)
@@ -206,7 +144,7 @@ and check_call_type top_level_env isObjAccess env fname el = (*top_level_env 参
 					in
 						if fty = pty
 							then param
-						else raise (Failure ("IncorrectTypePassedToFunction: " ^ Utils.string_of_datatype pty ^ " -> " ^ fname))
+						else raise (Failure ("IncorrectTypePassedToFunction: " ^ string_of_datatype pty ^ " -> " ^ fname))
 			in
 				let index fdecl fname =
 					let cdecl = cmap.cdecl
@@ -228,7 +166,7 @@ and check_call_type top_level_env isObjAccess env fname el = (*top_level_env 参
 															  [Many(Any)], _ -> params
 															| [], []         -> []
 															| [], _
-															| _, []          -> raise (Failure ("IncorrectTypePassedToFunction: " ^ Utils.string_of_datatype (Datatype(Void_t)) ^ " -> " ^ fname))
+															| _, []          -> raise (Failure ("IncorrectTypePassedToFunction: " ^ string_of_datatype (Datatype(Void_t)) ^ " -> " ^ fname))
 															| _              -> let len1 = List.length formals
 																				in
 																					let len2 = List.length params
@@ -341,7 +279,7 @@ and expr_to_sexpr env = function
 |   Id s                -> SId(s, get_ID_type env s), env
 |   Null                -> SNull, env
 |   Noexpr              -> SNoexpr, env
-|   ObjAccess(e1, e2)   -> check_obj_access env e1 e2, env(*不大明白系列*)
+|   ObjAccess(e1, e2)   -> SObjAccess(SInt_Lit(0),SInt_Lit(0),Datatype(Void_t))(*不大明白系列*)
 |   ObjectCreate(s, el) -> check_object_constructor env s el, env
 |   Call(s, el)         -> check_call_type env false env s el, env
 |   ArrayCreate(d, el)  -> check_array_init env d el, env
