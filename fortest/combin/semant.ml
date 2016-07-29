@@ -69,6 +69,44 @@ let get_name cname fdecl = (*get the name of function,cname.constructor-> constr
 		then "main"
 	else cname ^ "." ^ name
 
+let get_equality_binop_type type1 type2 se1 se2 op =
+	if (type1 = Datatype(Float_t) || type2 = Datatype(Float_t)) (*unqualified types*)
+		then raise (Failure ("InvalidBinopExpression: " ^ "Equality operation is not supported for Float types"))
+	else
+		match type1, type2 with (*qualified types*)
+			  Datatype(Char_t), Datatype(Int_t) 
+			| Datatype(Int_t), Datatype(Char_t)
+			| Datatype(Objecttype(_)), Datatype(Null_t)
+			| Datatype(Null_t), Datatype(Objecttype(_))
+			| Datatype(Null_t), Arraytype(_, _)
+			| Arraytype(_, _), Datatype(Null_t)         -> SBinop(se1, op, se2, Datatype(Bool_t))
+			| _                                         -> if type1 = type2
+																then SBinop(se1, op, se2, Datatype(Bool_t))
+														   else raise (Failure ("InvalidBinopExpression: " ^ "Equality operator can't operate on different types, with the exception of Int_t and Char_t"))
+
+let get_logical_binop_type se1 se2 op = function (*check operants and conver to sbinop*)
+	 (Datatype(Bool_t), Datatype(Bool_t)) -> SBinop(se1, op, se2, Datatype(Bool_t))
+	| _                                   -> raise (Failure ("InvalidBinopExpression: " ^ "Logical operators only operate on Bool_t types"))
+
+let get_comparison_binop_type type1 type2 se1 se2 op =
+	let numerics = SS.of_list [Datatype(Int_t); Datatype(Char_t); Datatype(Float_t)](*qualified operant types*)
+	in
+		if SS.mem type1 numerics && SS.mem type2 numerics
+
+			then SBinop(se1, op, se2, Datatype(Bool_t))
+		else raise (Failure ("InvalidBinopExpression: " ^ "Comparison operators operate on numeric types only"))
+
+let get_arithmetic_binop_type se1 se2 op = function
+	(*qualified combination of operant type*)
+	  (Datatype(Int_t), Datatype(Float_t)) 
+	| (Datatype(Float_t), Datatype(Int_t)) 
+	| (Datatype(Float_t), Datatype(Float_t)) -> SBinop(se1, op, se2, Datatype(Float_t))
+	| (Datatype(Int_t), Datatype(Char_t)) 
+	| (Datatype(Char_t), Datatype(Int_t)) 
+	| (Datatype(Char_t), Datatype(Char_t)) 	 -> SBinop(se1, op, se2, Datatype(Char_t))
+	| (Datatype(Int_t), Datatype(Int_t)) 	 -> SBinop(se1, op, se2, Datatype(Int_t))
+	| _ -> raise (Failure ("Arithmetic operators don't support these types"))
+
 let rec get_ID_type env s = 
 	try
 		StringMap.find s env.env_locals
@@ -178,7 +216,7 @@ and check_call_type top_level_env isObjAccess env fname el = (*top_level_env 参
 						let sfname = env.env_name ^ "." ^ fname
 						in
 							try
-								let func = StringMap.find fname cmap.reserved_map
+								let func = StringMap.find fname cmap.reserved_functions_map
 								in
 									let actuals = handle_params func.sformals sel
 									in SCall(fname, actuals, func.sreturnType, 0)
@@ -197,7 +235,7 @@ and check_object_constructor env s el =
 		let cmap = try StringMap.find s env.env_class_maps
 				   with | Not_found -> raise (Failure ("UndefinedClass: " ^ s))
 		in
-			let params = List.fold_left (fun s e -> s ^ "." ^ (Utils.string_of_datatype (get_type_from_sexpr e))) "" sel
+			let params = List.fold_left (fun s e -> s ^ "." ^ (string_of_datatype (get_type_from_sexpr e))) "" sel
 			in
 				let constructor_name = s ^ "." ^ "constructor" ^ params
 				in
@@ -232,7 +270,7 @@ and check_assign env e1 e2 =(*后面的检查类型和表达式 还有类型和�
 																		else raise (Exceptions.AssignmentTypeMismatch(Utils.string_of_datatype type1, Utils.string_of_datatype type2))
 															  *)| _ -> if type1 = type2 
 																		then SAssign(se1, se2, type1)
-																		else raise (Exceptions.AssignmentTypeMismatch(Utils.string_of_datatype type1, Utils.string_of_datatype type2))
+																		else raise (Failure ("AssignmentTypeMismatch: " ^ string_of_datatype type1 ^ " <-> " ^ string_of_datatype type2))
 
 and check_unop env op e = 
 	let check_num_unop t = function(*operator for number*)
@@ -267,7 +305,7 @@ and check_binop env e1 op e2 =
 						|	And | Or                     -> get_logical_binop_type se1 se2 op (type1, type2)
 						|	Less | Leq | Greater | Geq   -> get_comparison_binop_type type1 type2 se1 se2 op
 						|	Add | Mult | Sub | Div | Mod -> get_arithmetic_binop_type se1 se2 op (type1, type2) 
-						| 	_                            -> raise (Failure ("InvalidBinopExpression: " ^ (Utils.string_of_op op) ^ " is not a supported binary op"))
+						| 	_                            -> raise (Failure ("InvalidBinopExpression: " ^ (string_of_op op) ^ " is not a supported binary op"))
 
 and expr_to_sexpr env = function
 	Int_Lit i           -> SInt_Lit(i), env
@@ -279,7 +317,7 @@ and expr_to_sexpr env = function
 |   Id s                -> SId(s, get_ID_type env s), env
 |   Null                -> SNull, env
 |   Noexpr              -> SNoexpr, env
-|   ObjAccess(e1, e2)   -> SObjAccess(SInt_Lit(0),SInt_Lit(0),Datatype(Void_t))(*不大明白系列*)
+|   ObjAccess(e1, e2)   -> SObjAccess(SInt_Lit(0),SInt_Lit(0),Datatype(Void_t)), env(*不大明白系列*)
 |   ObjectCreate(s, el) -> check_object_constructor env s el, env
 |   Call(s, el)         -> check_call_type env false env s el, env
 |   ArrayCreate(d, el)  -> check_array_init env d el, env
@@ -332,23 +370,23 @@ let process_includes reserved classess = classess
 (*TODO:add more buit-in functions *)
 
 let store_reserved_functions = 
-	let i32_t =Datatype(Int_t) and 
+	let i32_t = Datatype(Int_t) and 
 	    void_t = Datatype(Void_t) and
 	    str_t = Arraytype( Char_t, 1) in 
-	let m t s = Formal(t, n) in
+	let m t s = Formal(t, s) in
 	let reserved_stub fname return_type formals = 
 	      { sfname = FName (fname);
-		sreturntType = return_type;
+		sreturnType = return_type;
 		sformals= formals;	
 		func_type= Sast.Reserved;
 		sbody=[];
-		source= "None"(*对应 ast 里面的 root_cname ? 需要改 ?*)
+		source= "NA"
 		}
 	 in
 
 	 let reserved_functions =[
 
-		reserved_stub "print" (void_t) ([Many(Formal(Datatype, String))])
+		reserved_stub "print" (void_t) ([Many(Any)])
 
 		]
 
@@ -371,7 +409,7 @@ let store_reserved_functions =
 let get_constructor_name cname fdecl =
 	let params = List.fold_left 
 		(fun s -> 
-		(function   Formal(t, _) -> s ^ "." ^ Utils.string_of_datatype t 
+		(function   Formal(t, _) -> s ^ "." ^ string_of_datatype t 
 				  | _ -> "" )) 
 		"" fdecl.formals 
 	in
@@ -393,74 +431,35 @@ let update_env_name env env_name =
 	env_in_while   = env.env_in_while;
 	env_reserved   = env.env_reserved;
 }
-	
-
-let get_equality_binop_type type1 type2 se1 se2 op =
-	if (type1 = Datatype(Float_t) || type2 = Datatype(Float_t)) (*unqualified types*)
-		then raise (Failure ("InvalidBinopExpression: " ^ "Equality operation is not supported for Float types"))
-	else
-		match type1, type2 with (*qualified types*)
-			  Datatype(Char_t), Datatype(Int_t) 
-			| Datatype(Int_t), Datatype(Char_t)
-			| Datatype(Objecttype(_)), Datatype(Null_t)
-			| Datatype(Null_t), Datatype(Objecttype(_))
-			| Datatype(Null_t), Arraytype(_, _)
-			| Arraytype(_, _), Datatype(Null_t)         -> SBinop(se1, op, se2, Datatype(Bool_t))
-			| _                                         -> if type1 = type2
-																then SBinop(se1, op, se2, Datatype(Bool_t))
-														   else raise (Failure ("InvalidBinopExpression: " ^ "Equality operator can't operate on different types, with the exception of Int_t and Char_t"))
-
-let get_logical_binop_type se1 se2 op = function (*check operants and conver to sbinop*)
-	 (Datatype(Bool_t), Datatype(Bool_t)) -> SBinop(se1, op, se2, Datatype(Bool_t))
-	| _                                   -> raise (Failure ("InvalidBinopExpression: " ^ "Logical operators only operate on Bool_t types"))
-
-let get_comparison_binop_type type1 type2 se1 se2 op =
-	let numerics = SS.of_list [Datatype(Int_t); Datatype(Char_t); Datatype(Float_t)](*qualified operant types*)
-	in
-		if SS.mem type1 numerics && SS.mem type2 numerics
-			then SBinop(se1, op, se2, Datatype(Bool_t))
-		else raise (Failure ("InvalidBinopExpression: " ^ "Comparison operators operate on numeric types only"))
-
-let get_arithmetic_binop_type se1 se2 op = function
-	(*qualified combination of operant type*)
-	  (Datatype(Int_t), Datatype(Float_t)) 
-	| (Datatype(Float_t), Datatype(Int_t)) 
-	| (Datatype(Float_t), Datatype(Float_t)) -> SBinop(se1, op, se2, Datatype(Float_t))
-	| (Datatype(Int_t), Datatype(Char_t)) 
-	| (Datatype(Char_t), Datatype(Int_t)) 
-	| (Datatype(Char_t), Datatype(Char_t)) 	 -> SBinop(se1, op, se2, Datatype(Char_t))
-	| (Datatype(Int_t), Datatype(Int_t)) 	 -> SBinop(se1, op, se2, Datatype(Int_t))
-	| _ -> raise (Exceptions.InvalidBinopExpression "Arithmetic operators don't support these types")
-
 
 (*stringmap：
 	                / field_map : field name --> Field(d, n)
 				    | func_map : cname.constructor/cname.xxx/main --> func_decl
 	class name --> <  constructor_map : class name.constructor.parameter types --> func_decl
-				    | reserved_map : function name --> func_decl
+				    | reserved_functions_map : function name --> func_decl
 				    \ class_decl
 *)
 let build_class_maps reserved_functions cdecls =
-	let reserved_functions_map = List.fold_left (fun mp sfun -> StringMap.add (Utils.string_of_fname sfun.sfname) sfun mp) StringMap.empty reserved_functions
+	let reserved_functions_map = List.fold_left (fun mp sfun -> StringMap.add (string_of_fname sfun.sfname) sfun mp) StringMap.empty reserved_functions
 	in
 		let assistant mp cdecl =
 			let fieldpart mp = function Field(d,n) ->
 				if (StringMap.mem n mp)
 					then raise (Failure ("DuplicateField: " ^ n))(*exception:DuplicateField *)
-				else StringMap.add n Field(d,n) mp
+				else (StringMap.add n (Field(d, n)) mp)
 			in
 				let constructorpart condecl = 
-					if condecl.length > 1
+					if List.length condecl> 1
 						then raise (Failure ("DuplicateConstructor"))(*exception:DuplicateConstructor*)
-					else if condecl.length = 0 (*default constructor*)
+					else if List.length condecl = 0 (*default constructor*)
 						then StringMap.add (get_constructor_name cdecl.cname default_c) default_c StringMap.empty
-					else StringMap.add (get_constructor_name cdecl.cname condecl.hd) condecl.hd StringMap.empty
+					else StringMap.add (get_constructor_name cdecl.cname (List.hd condecl)) (List.hd condecl) StringMap.empty
 				in
 					let funcpart mp fdecl = 
 						if (StringMap.mem (get_name cdecl.cname fdecl) mp)
 							then raise (Failure ("DuplicateFunction: " ^ (get_name cdecl.cname fdecl)))(*exception:DuplicateFunction*)
-						else if (StringMap.mem (Utils.string_of_fname fdecl.fname) reserved_functions_map)
-							then raise (Failure ("CannotUseReservedFuncName: " ^ (Utils.string_of_fname fdecl.fname)))(*exception:CannotUseReservedFuncName*)
+						else if (StringMap.mem (string_of_fname fdecl.fname) reserved_functions_map)
+							then raise (Failure ("CannotUseReservedFuncName: " ^ (string_of_fname fdecl.fname)))(*exception:CannotUseReservedFuncName*)
 						else (StringMap.add (get_name cdecl.cname fdecl) fdecl mp)
 					in
 						(if (StringMap.mem cdecl.cname mp)

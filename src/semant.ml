@@ -62,6 +62,13 @@ let default_sc cname =
 	source 		= "NA";
 }
 
+let get_name cname fdecl = (*get the name of function,cname.constructor-> constructor / cname.xxx-> normal_function / main*)
+	let name = Utils.string_of_fname fdecl.fname (*tell constructor from normal function*)
+	in
+	if name = "main" 
+		then "main"
+	else cname ^ "." ^ name
+
 let get_ID_type env s = 
 	try
 		StringMap.find s env.env_locals
@@ -206,7 +213,7 @@ and check_call_type top_level_env isObjAccess env fname el = (*top_level_env 参
 					in
 						if fty = pty
 							then param
-						else raise (Failure ("IncorrectTypePassedToFunction: " ^ Utils.string_of_datatype pty ^ " -> " ^ fname))
+						else raise (Failure ("IncorrectTypePassedToFunction: " ^ string_of_datatype pty ^ " -> " ^ fname))
 			in
 				let index fdecl fname =
 					let cdecl = cmap.cdecl
@@ -293,8 +300,8 @@ and check_assign env e1 e2 =(*后面的检查类型和表达式 还有类型和�
 																			then SAssign(se1, SCall("cast", [se2; SId("ignore", type1)], type1, 0), type1)
 																		else raise (Exceptions.AssignmentTypeMismatch(Utils.string_of_datatype type1, Utils.string_of_datatype type2))
 															  *)| _ -> if type1 = type2 
-																		then SAssign(se1, se2, type1)
-																		else raise (Exceptions.AssignmentTypeMismatch(Utils.string_of_datatype type1, Utils.string_of_datatype type2))
+																		then SAssign(se1, se2, type1) 
+																		else raise (Failure ("AssignmentTypeMismatch: " ^ string_of_datatype type1 ^ " <-> " ^ string_of_datatype type2))
 
 and check_unop env op e = 
 	let check_num_unop t = function(*operator for number*)
@@ -509,7 +516,7 @@ let build_class_maps reserved_functions cdecls =
 			let fieldpart mp = function Field(d,n) ->
 				if (StringMap.mem n mp)
 					then raise (Failure ("DuplicateField: " ^ n))(*exception:DuplicateField *)
-				else StringMap.add n Field(d,n) mp
+				else (StringMap.add n (Field(d, n)) mp)))
 			in
 				let constructorpart condecl = 
 					if condecl.length > 1
