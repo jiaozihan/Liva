@@ -191,9 +191,9 @@ and check_obj_access env lhs rhs =
 			Datatype(Objecttype(name)) 	-> name
 		| 	_ as d						-> raise (Failure ("ObjAccessMustHaveObjectType: " ^ string_of_datatype d))
 	in
-	let rec check_rhs (env) parent_type (top_level_env) = (*top_level_env 可以删*)
+	let rec check_rhs (env) parent_type=
 		let pt_name = ptype_name parent_type in(*get the class name*)
-		let get_id_type_from_object env (id) cname tlenv = (*tlenv 可以删*)
+		let get_id_type_from_object env (id) cname=
 			let cmap = StringMap.find cname env.env_class_maps in(*get the class map of current class*)
 			let match_field f = match f with (*get datatype of the expression after ‘.’*)
 				Field(d, n) -> d
@@ -202,20 +202,20 @@ and check_obj_access env lhs rhs =
 			with | Not_found -> raise (Failure ("UnknownIdentifierForClass: " ^ id ^ " -> " ^ cname))
 		in
 		function
-			Id s 				-> SId(s, (get_id_type_from_object env s pt_name top_level_env)), env (* Check fields*)
+			Id s 				-> SId(s, (get_id_type_from_object env s pt_name )), env (* Check fields*)
 		| 	Call(fname, el) 	-> (* Check functions*)
 				let env = update_env_name env pt_name in
-				check_call_type top_level_env true env fname el, env
+				check_call_type env fname el, env
 			(* Set parent, check if base is field *)
 		| 	ObjAccess(e1, e2) 	-> (*多个 '.'*)(*nested? 删?问问问问问*)
 				let old_env = env in
-				let lhs, env = check_rhs env parent_type top_level_env e1 in
+				let lhs, env = check_rhs env parent_type e1 in
 				let lhs_type = get_type_from_sexpr lhs in
 
 				let pt_name = ptype_name lhs_type in
 				let lhs_env = update_env_name env pt_name in
 
-				let rhs, env = check_rhs lhs_env lhs_type top_level_env e2 in
+				let rhs, env = check_rhs lhs_env lhs_type e2 in
 				let rhs_type = get_type_from_sexpr rhs in
 				SObjAccess(lhs, rhs, rhs_type), old_env
 		| 	_ as e				-> raise (Failure ("InvalidAccessLHS: " ^ string_of_expr e))
@@ -228,11 +228,11 @@ and check_obj_access env lhs rhs =
 		let ptype_name = ptype_name lhs_type in
 		let lhs_env = update_env_name env ptype_name in
 
-		let rhs, _ = check_rhs lhs_env lhs_type env rhs in
+		let rhs, _ = check_rhs lhs_env lhs_type rhs in
 		let rhs_type = get_type_from_sexpr rhs in
 		SObjAccess(lhs, rhs, rhs_type)
 
-and check_call_type top_level_env isObjAccess env fname el = (*top_level_env 参数可以去掉, 判断scope 才用,Liva 全 public*)
+and check_call_type env fname el =
 	let sel, env = exprl_to_sexprl env el(*convert expression list to sexpression list*)
 	in
 		let cmap = try StringMap.find env.env_name env.env_class_maps (*check whether the class has been defined*)
@@ -384,7 +384,7 @@ and expr_to_sexpr env = function
 |   Noexpr              -> SNoexpr, env
 |   ObjAccess(e1, e2)   -> check_obj_access env e1 e2, env
 |   ObjectCreate(s, el) -> check_object_constructor env s el, env
-|   Call(s, el)         -> check_call_type env false env s el, env
+|   Call(s, el)         -> check_call_type env s el, env
 |   ArrayCreate(d, el)  -> check_array_init env d el, env
 |   ArrayAccess(e, el)  -> check_array_access env e el, env
 (*|   ArrayPrimitive el   -> check_array_primitive env el, env*)(*Liva 没有*)
