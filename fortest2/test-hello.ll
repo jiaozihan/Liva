@@ -35,6 +35,14 @@
 @fmt_string.29 = private unnamed_addr constant [4 x i8] c"%s\0A\00"
 @fmt_float.30 = private unnamed_addr constant [4 x i8] c"%f\0A\00"
 @str.31 = private unnamed_addr constant [6 x i8] c"false\00"
+@fmt.32 = private unnamed_addr constant [4 x i8] c"%d\0A\00"
+@fmt_string.33 = private unnamed_addr constant [4 x i8] c"%s\0A\00"
+@fmt_string.34 = private unnamed_addr constant [4 x i8] c"%s\0A\00"
+@fmt_float.35 = private unnamed_addr constant [4 x i8] c"%f\0A\00"
+@fmt.36 = private unnamed_addr constant [4 x i8] c"%d\0A\00"
+@fmt_string.37 = private unnamed_addr constant [4 x i8] c"%s\0A\00"
+@fmt_string.38 = private unnamed_addr constant [4 x i8] c"%s\0A\00"
+@fmt_float.39 = private unnamed_addr constant [4 x i8] c"%f\0A\00"
 
 declare i32 @printf(...)
 
@@ -43,5 +51,6 @@ entry:
   %printf = call i32 (...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @fmt.6, i32 0, i32 0), i32 100)
   %printf1 = call i32 (...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @fmt_string.15, i32 0, i32 0), i8* getelementptr inbounds ([13 x i8], [13 x i8]* @str.22, i32 0, i32 0))
   %printf2 = call i32 (...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @fmt_string.25, i32 0, i32 0), i8* getelementptr inbounds ([6 x i8], [6 x i8]* @str.31, i32 0, i32 0))
+  %printf3 = call i32 (...) @printf(i8* getelementptr inbounds ([4 x i8], [4 x i8]* @fmt_float.35, i32 0, i32 0), double 1.005000e+02)
   ret i32 0
 }
