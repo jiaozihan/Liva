@@ -167,7 +167,7 @@ match sexpr with
 |        SString_Lit s -> let temp= L.build_global_stringptr s "str" llbuilder in temp
 |	SBoolean_Lit(b)     -> let temp = L.build_global_stringptr (string_of_boolean b) "str" llbuilder in temp
 |       SFloat_Lit(f) -> L.const_float f_t  f
-|     SCall("print", [e], d, _) ->   L.build_call printf_func [| print_format e ; (codegen_sexpr e llbuilder) |]
+|     SCall("print", [e], d) ->   L.build_call printf_func [| print_format e ; (codegen_sexpr e llbuilder) |]
 	    "printf" llbuilder	
   
  

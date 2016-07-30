@@ -90,12 +90,10 @@ let get_equality_binop_type type1 type2 se1 se2 op =
 			  Datatype(Char_t), Datatype(Int_t) 
 			| Datatype(Int_t), Datatype(Char_t)
 			| Datatype(Objecttype(_)), Datatype(Null_t)
-			| Datatype(Null_t), Datatype(Objecttype(_))
-			| Datatype(Null_t), Arraytype(_, _)
-			| Arraytype(_, _), Datatype(Null_t)         -> SBinop(se1, op, se2, Datatype(Bool_t))
-			| _                                         -> if type1 = type2
+			| Datatype(Null_t), Datatype(Objecttype(_))	 -> SBinop(se1, op, se2, Datatype(Bool_t))
+			| _                                          -> if type1 = type2
 																then SBinop(se1, op, se2, Datatype(Bool_t))
-														   else raise (Failure ("InvalidBinopExpression: " ^ "Equality operator can't operate on different types, with the exception of Int_t and Char_t"))
+															else raise (Failure ("InvalidBinopExpression: " ^ "Equality operator can't operate on different types, with the exception of Int_t and Char_t"))
 
 let get_logical_binop_type se1 se2 op = function (*check operants and conver to sbinop*)
 	 (Datatype(Bool_t), Datatype(Bool_t)) -> SBinop(se1, op, se2, Datatype(Bool_t))
@@ -105,7 +103,6 @@ let get_comparison_binop_type type1 type2 se1 se2 op =
 	let numerics = SS.of_list [Datatype(Int_t); Datatype(Char_t); Datatype(Float_t)](*qualified operant types*)
 	in
 		if SS.mem type1 numerics && SS.mem type2 numerics
-
 			then SBinop(se1, op, se2, Datatype(Bool_t))
 		else raise (Failure ("InvalidBinopExpression: " ^ "Comparison operators operate on numeric types only"))
 
@@ -132,7 +129,7 @@ let rec get_ID_type env s =
 and check_array_init env d el = 
 	let array_complexity = List.length el(*get the size of array*)
 	in
-	let check_elem_type e = (*check whether the type of index is int*)
+	let check_index_type e = (*check whether the type of index is int*)
 		let sexpr, _ = expr_to_sexpr env e (*convert expression to sexpression*)
 		in
 			let sexpr_type = get_type_from_sexpr sexpr (*get the type of sexpression*)
@@ -141,20 +138,20 @@ and check_array_init env d el =
 					then sexpr
 				else raise (Failure ("MustPassIntegerTypeToArrayCreate"))
 	in
-		let convert_d_to_arraytype = function(*check whether the type is array*)
+		let convert_dtyp_to_arraytyp = function(*check whether the type is array*)
 			   Datatype(x) -> Arraytype(x, array_complexity)
 			|  _ as t      -> raise (Failure ("ArrayInitTypeInvalid: " ^ (string_of_datatype t)))
 		in
-			let sexpr_type = convert_d_to_arraytype d
+			let sexpr_type = convert_dtyp_to_arraytyp d
 			in
-				let sel = List.map check_elem_type el
+				let sel = List.map check_index_type el
 				in
 					SArrayCreate(d, sel, sexpr_type)
 
 and check_array_access env e el = 
 	let array_dimensions = List.length el (*get the size of array*)
 	in
-		let check_elem_type arg = 
+		let check_index_type arg = (*check whether the type of index is int*)
 			let sexpr, _ = expr_to_sexpr env arg (*convert expression to sexpression*)
 			in
 				let sexpr_type = get_type_from_sexpr sexpr (*get the type of sexpression*)
@@ -167,17 +164,17 @@ and check_array_access env e el =
 			in
 				let se_type = get_type_from_sexpr se (*get the type of sexpression*)
 				in
-					let check_array_dim_vs_params num_params = function
+					let check_array_dim num_params = function
 						   Arraytype(t, n) -> if num_params < n
-												then Arraytype(t, (n-num_params))
+												then Arraytype(t, (n-num_params))(*remain, now a smaller array*)
 											  else if num_params = n
 												then Datatype(t)
 											  else raise (Failure ("ArrayAccessInvalidParamLength: " ^ (string_of_int num_params) ^ " > " ^ (string_of_int n)))
 						|  _ as t          -> raise (Failure ("ArrayAccessExpressionNotArray: " ^ (string_of_datatype t)))	
 					in
-						let sexpr_type = check_array_dim_vs_params array_dimensions se_type
+						let sexpr_type = check_array_dim array_dimensions se_type
 						in
-							let sel = List.map check_elem_type el
+							let sel = List.map check_index_type el
 							in SArrayAccess(se, sel, sexpr_type)
 
 and check_obj_access env lhs rhs =
@@ -238,78 +235,60 @@ and check_call_type env fname el =
 		let cmap = try StringMap.find env.env_name env.env_class_maps (*check whether the class has been defined*)
 				   with | Not_found -> raise (Failure ("UndefinedClass: " ^ env.env_name))
 		in(*check type*)
-			let handle_param formal param = (*get the type of formal parameter*)
-				let fty = match formal with
+			let check_pa_onebyone formal param = (*get the type of formal parameter*)
+				let ftyp = match formal with
 					  Formal(d, _) -> d
 					| _            -> Datatype(Void_t)
 				in
-					let pty = get_type_from_sexpr param(*get the type of parameter*)
+					let ptyp = get_type_from_sexpr param(*get the type of actual parameter*)
 					in
-						if fty = pty
+						if ftyp = ptyp
 							then param
-						else raise (Failure ("IncorrectTypePassedToFunction: " ^ string_of_datatype pty ^ " -> " ^ fname))
+						else raise (Failure ("IncorrectTypePassedToFunction: " ^ string_of_datatype ptyp ^ " -> " ^ fname))
 			in
-				let index fdecl fname =
-					let cdecl = cmap.cdecl
-					in
-						let fns = List.rev cdecl.cbody.methods (*从此处向后 的 关于 index(因为 override?) 的 不大明白, 尤其 rev*)
-						in
-							let rec find x lst = match lst with
-								| []         -> raise (Failure ("Could not find " ^ fname))
-								| fdecl :: t -> let search_name = get_name env.env_name fdecl
-												in
-													if x = search_name
-														then 0 
-													else if search_name = "main"
-														then find x t 
-													else 1 + find x t
-							in find fname fns
-				in
-					let handle_params (formals) params = match formals, params with (*check parameter according to amount*)
-															  [Many(Any)], _ -> params
-															| [], []         -> []
-															| [], _
-															| _, []          -> raise (Failure ("IncorrectTypePassedToFunction: " ^ string_of_datatype (Datatype(Void_t)) ^ " -> " ^ fname))
-															| _              -> let len1 = List.length formals
+				let check_params (formals) params = match formals, params with (*check parameter according to amount*)
+														  [Many(Any)], _ -> params
+														| [], []         -> []
+														| [], _
+														| _, []          -> raise (Failure ("IncorrectTypePassedToFunction: " ^ string_of_datatype (Datatype(Void_t)) ^ " -> " ^ fname))
+														| _              -> let len1 = List.length formals
+																			in
+																				let len2 = List.length params
 																				in
-																					let len2 = List.length params
-																					in
-																						if len1 <> len2
-																							then raise (Failure ("IncorrectNumberOfArguments: " ^ fname))
-																						else List.map2 handle_param formals sel
-					in
-						let sfname = env.env_name ^ "." ^ fname
+																					if len1 <> len2
+																						then raise (Failure ("IncorrectNumberOfArguments: " ^ fname))
+																					else List.map2 check_pa_onebyone formals sel
+				in
+					try
+						let func = StringMap.find fname cmap.reserved_functions_map
 						in
-							try
-								let func = StringMap.find fname cmap.reserved_functions_map
-								in
-									let actuals = handle_params func.sformals sel
-									in SCall(fname, actuals, func.sreturnType, 0)
-							with | Not_found -> try let f = StringMap.find sfname cmap.func_map
-													in
-														let actuals = handle_params f.formals sel
-														in
-															let index = index f sfname
-															in SCall(sfname, actuals, f.returnType, index)
-												with | Not_found -> raise (Failure ("IncorrectNumberOfArguments: " ^ sfname))
-													 | _ as ex   -> raise ex
+							let actuals = check_params func.sformals sel
+							in SCall(fname, actuals, func.sreturnType)
+					with | Not_found -> let sfname = env.env_name ^ "." ^ fname
+										in
+											try let f = StringMap.find sfname cmap.func_map
+												in
+													let actuals = check_params f.formals sel
+													in SCall(sfname, actuals, f.returnType)
+											with | Not_found -> raise (Failure ("IncorrectNumberOfArguments: " ^ sfname))
+												 | _ as ex   -> raise ex
 
 and check_object_constructor env s el =
 	let sel, env = exprl_to_sexprl env el
 	in
-		let cmap = try StringMap.find s env.env_class_maps
+		let cmap = try StringMap.find s env.env_class_maps(*find the class*)
 				   with | Not_found -> raise (Failure ("UndefinedClass: " ^ s))
 		in
 			let params = List.fold_left (fun s e -> s ^ "." ^ (string_of_datatype (get_type_from_sexpr e))) "" sel
 			in
 				let constructor_name = s ^ "." ^ "constructor" ^ params
 				in
-					let _ = try StringMap.find constructor_name cmap.constructor_map
+					let _ = try StringMap.find constructor_name cmap.constructor_map(*find constructor with type check*)
 							with  | Not_found -> raise (Failure ("ConstructorNotFound: " ^ constructor_name))
 					in
-						let ftype = Datatype(Objecttype(s))
+						let obtyp = Datatype(Objecttype(s))
 						in
-							SObjectCreate(constructor_name, sel, ftype)
+							SObjectCreate(constructor_name, sel, obtyp)
 
 and check_assign env e1 e2 =(*后面的检查类型和表达式 还有类型和类型 的组合部分 没大搞懂,不明白为什么就合法了*)
 	let se1, env = expr_to_sexpr env e1(*convert expression to sexpression*)
@@ -321,19 +300,14 @@ and check_assign env e1 e2 =(*后面的检查类型和表达式 还有类型和�
 				let type2 = get_type_from_sexpr se2
 				in 
 					match (type1, se2) with
-						  Datatype(Objecttype(_)), SNull 
-						| Arraytype(_, _), SNull         -> SAssign(se1, se2, type1)
+						  Datatype(Objecttype(_)), SNull -> SAssign(se1, se2, type1)
 						| _                              -> 
 															match type1, type2 with
-																  Datatype(Char_t), Datatype(Int_t)
-																| Datatype(Int_t), Datatype(Char_t)                -> SAssign(se1, se2, type1)(*为什么呢*)
-															  (*| Datatype(Objecttype(d)), Datatype(Objecttype(t)) ->
-																		if d = t
+																 Datatype(Objecttype(d)), Datatype(Objecttype(t)) ->
+																		if d = t 
 																			then SAssign(se1, se2, type1)
-																		else if inherited type1 type2
-																			then SAssign(se1, SCall("cast", [se2; SId("ignore", type1)], type1, 0), type1)
-																		else raise (Exceptions.AssignmentTypeMismatch(Utils.string_of_datatype type1, Utils.string_of_datatype type2))
-															  *)| _ -> if type1 = type2 
+																		else raise (Failure ("AssignmentTypeMismatch: " ^ string_of_datatype type1 ^ " <-> " ^ string_of_datatype type2))
+																| _ -> if type1 = type2 
 																		then SAssign(se1, se2, type1)
 																		else raise (Failure ("AssignmentTypeMismatch: " ^ string_of_datatype type1 ^ " <-> " ^ string_of_datatype type2))
 
@@ -387,8 +361,7 @@ and expr_to_sexpr env = function
 |   Call(s, el)         -> check_call_type env s el, env
 |   ArrayCreate(d, el)  -> check_array_init env d el, env
 |   ArrayAccess(e, el)  -> check_array_access env e el, env
-(*|   ArrayPrimitive el   -> check_array_primitive env el, env*)(*Liva 没有*)
-|   Assign(e1, e2)      -> check_assign env e1 e2, env(*不大明白系列*)
+|   Assign(e1, e2)      -> check_assign env e1 e2, env
 |   Unop(op, e)         -> check_unop env op e, env
 |   Binop(e1, op, e2)   -> check_binop env e1 op e2, env
 
@@ -405,7 +378,7 @@ and get_type_from_sexpr = function(*get the type of sexpression*)
 | 	SArrayCreate(_, _, d)	-> d
 | 	SArrayAccess(_, _, d) 	-> d
 | 	SObjAccess(_, _, d)		-> d
-| 	SCall(_, _, d, _)		-> d
+| 	SCall(_, _, d)		-> d
 |   SObjectCreate(_, _, d) 	-> d
 | 	SArrayPrimitive(_, d)	-> d
 |  	SUnop(_, _, d) 			-> d
@@ -481,22 +454,6 @@ let get_constructor_name cname fdecl =
 		let name = string_of_fname fdecl.fname
 		in cname ^ "." ^ name ^ params
 
-
-
-
-let update_env_name env env_name = 
-{
-	env_class_maps = env.env_class_maps;
-	env_name       = env_name;
-	env_cmap 	   = env.env_cmap;
-	env_locals     = env.env_locals;
-	env_parameters = env.env_parameters;
-	env_returnType = env.env_returnType;
-	env_in_for     = env.env_in_for;
-	env_in_while   = env.env_in_while;
-	env_reserved   = env.env_reserved;
-}
-
 (*stringmap：
 	                / field_map : field name --> Field(d, n)
 				    | func_map : cname.constructor/cname.xxx/main --> func_decl
@@ -514,18 +471,22 @@ let build_class_maps reserved_functions cdecls =
 				else (StringMap.add n (Field(d, n)) mp)
 			in
 				let constructorpart condecl = 
-					if List.length condecl> 1
+					if List.length condecl > 1
 						then raise (Failure ("DuplicateConstructor"))(*exception:DuplicateConstructor*)
 					else if List.length condecl = 0 (*default constructor*)
 						then StringMap.add (get_constructor_name cdecl.cname default_c) default_c StringMap.empty
 					else StringMap.add (get_constructor_name cdecl.cname (List.hd condecl)) (List.hd condecl) StringMap.empty
 				in
 					let funcpart mp fdecl = 
-						if (StringMap.mem (get_name cdecl.cname fdecl) mp)
-							then raise (Failure ("DuplicateFunction: " ^ (get_name cdecl.cname fdecl)))(*exception:DuplicateFunction*)
-						else if (StringMap.mem (string_of_fname fdecl.fname) reserved_functions_map)
-							then raise (Failure ("CannotUseReservedFuncName: " ^ (string_of_fname fdecl.fname)))(*exception:CannotUseReservedFuncName*)
-						else (StringMap.add (get_name cdecl.cname fdecl) fdecl mp)
+						let funname = get_name cdecl.cname fdecl
+						in
+							if (StringMap.mem funname mp)
+								then raise (Failure ("DuplicateFunction: " ^ funname))(*exception:DuplicateFunction*)
+							else let strfunname = string_of_fname fdecl.fname
+								 in
+									if (StringMap.mem strfunname reserved_functions_map)
+										then raise (Failure ("CannotUseReservedFuncName: " ^ strfunname))(*exception:CannotUseReservedFuncName*)
+									else (StringMap.add (get_name cdecl.cname fdecl) fdecl mp)
 					in
 						(if (StringMap.mem cdecl.cname mp)
 							then raise (Failure ("DuplicateClassName: " ^ cdecl.cname))(*exception:DuplicateClassName*)
