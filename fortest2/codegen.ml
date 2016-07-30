@@ -68,7 +68,9 @@ and get_type   datatype = match datatype with
 	| 	Arraytype(t, i) -> get_ptr_type (Arraytype(t, (i)))
 	| 	d -> raise(Failure ("Invalid DataType")) 
 
-
+(* Declare printf(), which the print built-in function will call *)
+let printf_t = L.var_arg_function_type i32_t [| L.pointer_type i8_t |] 
+let printf_func = L.declare_function "printf" printf_t the_module 
 
 
 
@@ -143,8 +145,13 @@ let condegen_print el illbuilder = "not implemented"
 
 
 
-let codegen_sexpr sexpr llbuilder = match sexpr with 
+let rec codegen_sexpr sexpr llbuilder = 
+let int_format_str = L.build_global_stringptr "%d\n" "fmt" llbuilder in
+match sexpr with 
 	 SInt_Lit i -> L.const_int i32_t i
+|	SBoolean_Lit(b)     -> L.const_int i1_t (if b then 1 else 0)
+|     SCall("print", [e], d, _) ->   L.build_call printf_func [| int_format_str ; (codegen_sexpr e llbuilder) |]
+	    "printf" llbuilder	
   
  
 	  
@@ -162,6 +169,7 @@ let rec codegen_stmt llbuilder = function
 
 	  SBlock sl -> List.hd (List.map (codegen_stmt llbuilder) sl)
 	| SExpr (se, _) -> codegen_sexpr se llbuilder
+
 	
 	
 (*function code generation*)

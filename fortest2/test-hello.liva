@@ -3,6 +3,13 @@ class test {
   void main(){
 
 	3;
+        false;
+
+ print (100);
+
+
+
+   
 
   }
 	
