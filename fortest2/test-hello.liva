@@ -5,7 +5,9 @@ class test {
 	3;
         false;
 
- print (100);
+print (100);
+print ("Hello World!");
+print (false);
 
 
 

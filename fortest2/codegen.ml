@@ -69,7 +69,7 @@ and get_type   datatype = match datatype with
 	| 	d -> raise(Failure ("Invalid DataType")) 
 
 (* Declare printf(), which the print built-in function will call *)
-let printf_t = L.var_arg_function_type i32_t [| L.pointer_type i8_t |] 
+let printf_t = L.var_arg_function_type i32_t [| |] 
 let printf_func = L.declare_function "printf" printf_t the_module 
 
 
@@ -139,6 +139,9 @@ let condegen_print el illbuilder = "not implemented"
 
 
 
+let string_of_boolean b = match b with
+	  true -> "true"
+	| false -> "false"
 
 
 
@@ -147,10 +150,25 @@ let condegen_print el illbuilder = "not implemented"
 
 let rec codegen_sexpr sexpr llbuilder = 
 let int_format_str = L.build_global_stringptr "%d\n" "fmt" llbuilder in
+let str_format_str = L.build_global_stringptr "%s\n" "fmt_string" llbuilder in
+let bool_format_str = L.build_global_stringptr "%s\n" "fmt_string" llbuilder in
+let float_format_str = L.build_global_stringptr "%f\n" "fmt_float" llbuilder in
+let rec print_format e =
+		(match e with 
+		  S.SString_Lit(_) -> str_format_str
+		| S.SInt_Lit(_) -> int_format_str
+		| S.SBoolean_Lit(_) -> bool_format_str
+		| S. SFloat_Lit (_) -> float_format_str
+)
+
+in
+
+
 match sexpr with 
 	 SInt_Lit i -> L.const_int i32_t i
-|	SBoolean_Lit(b)     -> L.const_int i1_t (if b then 1 else 0)
-|     SCall("print", [e], d, _) ->   L.build_call printf_func [| int_format_str ; (codegen_sexpr e llbuilder) |]
+|        SString_Lit s -> let temp= L.build_global_stringptr s "str" llbuilder in temp
+|	SBoolean_Lit(b)     -> let temp = L.build_global_stringptr (string_of_boolean b) "str" llbuilder in temp
+|     SCall("print", [e], d, _) ->   L.build_call printf_func [| print_format e ; (codegen_sexpr e llbuilder) |]
 	    "printf" llbuilder	
   
  

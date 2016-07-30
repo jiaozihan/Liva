@@ -17,7 +17,7 @@ let _ =
   let sast = Semant.check ast in sast;
 
   match action with
-    Ast -> print_string ("Not completed yet")
+    Ast -> print_string ("not implemented")
   | LLVM_IR -> print_string (Llvm.string_of_llmodule (Codegen.translate sast))
   | Compile -> let m = Codegen.translate sast in
     Llvm_analysis.assert_valid_module m;

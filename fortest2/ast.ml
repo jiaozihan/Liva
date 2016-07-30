@@ -77,7 +77,7 @@ let string_of_primitive = function (*primitive type*)
 	| 	Objecttype(s)	-> "class" ^ " " ^ s
 	| 	ConstructorType	-> "constructor"
 	|  	Null_t 			-> "null"
-	|   String_t        -> "String"
+	|       String_t        -> "String"
 
 let rec print_brackets = function
 		1 -> "[]"
@@ -104,4 +104,14 @@ let string_of_op = function(*operator*)
 	 | 	Not			-> "not"	
 	 | 	Or			-> "or"
 	 | 	Mod 		-> "%"
+
+
+let string_of_boolean b = match b with
+	  true -> "true"
+	| false -> "false"
+
+
+
+
+
 
