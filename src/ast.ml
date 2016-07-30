@@ -84,3 +84,19 @@ let rec print_brackets = function
 let string_of_datatype = function (*datatype*)
 		Arraytype(p, i)	-> (string_of_primitive p) ^ (print_brackets i)
 	| 	Datatype(p)		-> (string_of_primitive p)
+
+let string_of_op = function(*operator*)
+		Add			-> "+"	
+	 | 	Sub			-> "-"	
+	 | 	Mult		-> "*"	
+	 | 	Div			-> "/"	
+	 | 	Equal		-> "=="		
+	 | 	Neq			-> "!="	
+	 | 	Less		-> "<"	
+	 | 	Leq			-> "<="	
+	 | 	Greater		-> ">"			
+	 | 	Geq			-> ">="	
+	 | 	And			-> "and"	
+	 | 	Not			-> "not"	
+	 | 	Or			-> "or"
+	 | 	Mod 		-> "%"

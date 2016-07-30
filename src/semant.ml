@@ -516,7 +516,7 @@ let build_class_maps reserved_functions cdecls =
 			let fieldpart mp = function Field(d,n) ->
 				if (StringMap.mem n mp)
 					then raise (Failure ("DuplicateField: " ^ n))(*exception:DuplicateField *)
-				else (StringMap.add n (Field(d, n)) mp)))
+				else (StringMap.add n (Field(d, n)) mp)
 			in
 				let constructorpart condecl = 
 					if condecl.length > 1

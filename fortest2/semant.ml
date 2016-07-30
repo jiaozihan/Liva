@@ -37,6 +37,19 @@ type env ={
 	env_reserved:sfunc_decl list;
 }
 
+let update_env_name env env_name = 
+{
+	env_class_maps = env.env_class_maps;
+	env_name       = env_name;
+	env_cmap 	   = env.env_cmap;
+	env_locals     = env.env_locals;
+	env_parameters = env.env_parameters;
+	env_returnType = env.env_returnType;
+	env_in_for     = env.env_in_for;
+	env_in_while   = env.env_in_while;
+	env_reserved   = env.env_reserved;
+}
+
 let struct_indexes: (string, int) Hashtbl.t =  Hashtbl.create 10
 
 let build_struct_indexs cdecls= 
@@ -166,6 +179,58 @@ and check_array_access env e el =
 						in
 							let sel = List.map check_elem_type el
 							in SArrayAccess(se, sel, sexpr_type)
+
+and check_obj_access env lhs rhs =
+	let check_lhs = function(*check the expression before ‘.’ and get sexpression*)
+		This 			-> SId("this", Datatype(Objecttype(env.env_name)))
+	|	Id s 			-> SId(s, get_ID_type env s)
+	| 	ArrayAccess(e, el)	-> check_array_access env e el 
+	| 	_ as e 	-> raise (Failure ("LHSofRootAccessMustBeIDorFunc: " ^ string_of_expr e))
+	in
+	let ptype_name parent_type = match parent_type with (*get the type of the expression before ‘.’, i.e. class name*)
+			Datatype(Objecttype(name)) 	-> name
+		| 	_ as d						-> raise (Failure ("ObjAccessMustHaveObjectType: " ^ string_of_datatype d))
+	in
+	let rec check_rhs (env) parent_type (top_level_env) = (*top_level_env 可以删*)
+		let pt_name = ptype_name parent_type in(*get the class name*)
+		let get_id_type_from_object env (id) cname tlenv = (*tlenv 可以删*)
+			let cmap = StringMap.find cname env.env_class_maps in(*get the class map of current class*)
+			let match_field f = match f with (*get datatype of the expression after ‘.’*)
+				Field(d, n) -> d
+			in
+			try match_field (StringMap.find id cmap.field_map)
+			with | Not_found -> raise (Failure ("UnknownIdentifierForClass: " ^ id ^ " -> " ^ cname))
+		in
+		function
+			Id s 				-> SId(s, (get_id_type_from_object env s pt_name top_level_env)), env (* Check fields*)
+		| 	Call(fname, el) 	-> (* Check functions*)
+				let env = update_env_name env pt_name in
+				check_call_type top_level_env true env fname el, env
+			(* Set parent, check if base is field *)
+		| 	ObjAccess(e1, e2) 	-> (*多个 '.'*)(*nested? 删?问问问问问*)
+				let old_env = env in
+				let lhs, env = check_rhs env parent_type top_level_env e1 in
+				let lhs_type = get_type_from_sexpr lhs in
+
+				let pt_name = ptype_name lhs_type in
+				let lhs_env = update_env_name env pt_name in
+
+				let rhs, env = check_rhs lhs_env lhs_type top_level_env e2 in
+				let rhs_type = get_type_from_sexpr rhs in
+				SObjAccess(lhs, rhs, rhs_type), old_env
+		| 	_ as e				-> raise (Failure ("InvalidAccessLHS: " ^ string_of_expr e))
+	in 
+	let arr_lhs, _ = expr_to_sexpr env lhs in(*convert expression to sexpression*)
+	let arr_lhs_type = get_type_from_sexpr arr_lhs in (*get the type of sexpression*)
+		let lhs = check_lhs lhs in
+		let lhs_type = get_type_from_sexpr lhs in 
+
+		let ptype_name = ptype_name lhs_type in
+		let lhs_env = update_env_name env ptype_name in
+
+		let rhs, _ = check_rhs lhs_env lhs_type env rhs in
+		let rhs_type = get_type_from_sexpr rhs in
+		SObjAccess(lhs, rhs, rhs_type)
 
 and check_call_type top_level_env isObjAccess env fname el = (*top_level_env 参数可以去掉, 判断scope 才用,Liva 全 public*)
 	let sel, env = exprl_to_sexprl env el(*convert expression list to sexpression list*)
@@ -317,7 +382,7 @@ and expr_to_sexpr env = function
 |   Id s                -> SId(s, get_ID_type env s), env
 |   Null                -> SNull, env
 |   Noexpr              -> SNoexpr, env
-|   ObjAccess(e1, e2)   -> SObjAccess(SInt_Lit(0),SInt_Lit(0),Datatype(Void_t)), env(*不大明白系列*)
+|   ObjAccess(e1, e2)   -> check_obj_access env e1 e2, env
 |   ObjectCreate(s, el) -> check_object_constructor env s el, env
 |   Call(s, el)         -> check_call_type env false env s el, env
 |   ArrayCreate(d, el)  -> check_array_init env d el, env
