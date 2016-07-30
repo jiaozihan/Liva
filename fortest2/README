@@ -82,6 +82,15 @@ Codegen: Zihan Jiao and Shanqi Lu
 7/29/2016 RECORD
 
 
+Add tests folder and shell scripts for testing.
+1 make liva
+2 ./testall.sh
+
+To test a specific file, pass the file name as a command line argument
+./testall.sh tests/test-hello.liva
+
+--------------------------------
+7/30/2016 RECORD
 
 
 
