@@ -52,7 +52,7 @@ let update_env_name env env_name =
 
 let struct_indexes: (string, int) Hashtbl.t =  Hashtbl.create 10
 
-let build_struct_indexs cdecls= 
+let build_struct_indexes cdecls= 
 	let cdecls_handler index cdecl=
 	Hashtbl.add struct_indexes cdecl.cname index in 
 	List.iteri cdecls_handler cdecls
@@ -522,7 +522,7 @@ and check_expr_stmt e env =
 	let t = get_type_from_sexpr se in 
 	SExpr(se, t), env
 
-(* convert the constructor in sat to the function in Sast *)
+(* convert the constructor in ast to the function in Sast *)
 and  parse_stmt env = function
 		Block sl 		-> check_sblock sl env (*TODO*)
 	| 	Expr e 			-> check_expr_stmt e env (*TODO*)
@@ -614,15 +614,15 @@ let convert_fdecl_to_sfdecl class_maps reserved class_map cname fdecl=
 	}
 	
 
-(*convert the class in sat to sast type*)
+(*convert the class in ast to sast type*)
 let convert_cdecl_to_sast sfdecls (cdecl: Ast.class_decl) =
 	{scname =cdecl.cname;
 	 sfields =cdecl.cbody.fields;
 	 sfuncs= sfdecls;
 	}
 
-(* Convert sat to sast*)
-let convert_sat_to_sast class_maps reserved_functions cdecls = 
+(* Convert ast to sast*)
+let convert_ast_to_sast class_maps reserved_functions cdecls = 
 
 
 	let check_main = (fun f -> match f.sfname with FName s -> s="main") in
@@ -684,7 +684,7 @@ let check program = match program with
 
 	Program (includes, classes) ->
  	let cdecls = process_includes includes classes in 
-	ignore (build_struct_indexs  cdecls);
+	ignore (build_struct_indexes  cdecls);
 
 
 	(* add reserved built-in functions*)
@@ -695,7 +695,7 @@ let check program = match program with
         let class_maps, cdecls = handle_inheritance cdecls class_maps in 
 
 
-	let sast = convert_sat_to_sast class_maps reserved_functions cdecls in 
+	let sast = convert_ast_to_sast class_maps reserved_functions cdecls in 
 
 	sast 
 
