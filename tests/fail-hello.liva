@@ -1,0 +1,8 @@
+class test {
+
+    print ("Hello World!");
+
+    void main(){
+    
+    }
+}

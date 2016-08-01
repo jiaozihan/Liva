@@ -420,15 +420,15 @@ let store_reserved_functions =
 		sbody=[];
 		source= "NA"
 		}
-	 in
+	in
 
-	 let reserved_functions =[
+	let reserved_functions =[
 
 		reserved_stub "print" (void_t) ([Many(Any)])
 
 		]
 
-	 in reserved_functions
+	in reserved_functions
 
 
 
