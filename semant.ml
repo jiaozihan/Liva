@@ -68,7 +68,7 @@ let default_c =
 let default_sc cname = 
 {
 	sfname 		= Ast.FName (cname ^ "." ^ "constructor");
-	sreturnType 	= Datatype(Objecttype(cname));
+	sreturnType = Datatype(Objecttype(cname));
 	sformals 	= [];
 	sbody 		= [] (*TODO*);
 	func_type	= Sast.User;

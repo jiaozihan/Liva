@@ -14,7 +14,7 @@ type expr =
 	| 	Float_Lit of float
 	| 	String_Lit of string
 	| 	Char_Lit of char
-	| 	This
+	| 	This (*need to be implemented*)
 	| 	Id of string
 	| 	Binop of expr * op * expr
 	| 	Assign of expr * expr
@@ -23,7 +23,7 @@ type expr =
 	| 	ArrayAccess of expr * expr list
 	| 	ObjAccess of expr * expr
 	| 	Call of string * expr list  
-	|       ObjectCreate of string * expr list
+	|   ObjectCreate of string * expr list
 	|  	Unop of op * expr
 	| 	Null
 
