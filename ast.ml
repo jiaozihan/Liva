@@ -35,8 +35,8 @@ type stmt =
 	| 	For of expr * expr * expr * stmt
 	| 	While of expr * stmt
 	|  	Break
-	|       Continue
-	|       Local of datatype * string * expr
+	|   Continue
+	|   Local of datatype * string * expr
 
 type field = Field of datatype * string
 type import_stmt = Import of string
@@ -77,7 +77,15 @@ let string_of_primitive = function (*primitive type*)
 	| 	Objecttype(s)	-> "class" ^ " " ^ s
 	| 	ConstructorType	-> "constructor"
 	|  	Null_t 			-> "null"
-	|       String_t        -> "String"
+	|   String_t        -> "String"
+
+
+let string_of_object = function
+		Datatype(Objecttype(s))	-> s
+	| 	_ -> ""
+
+
+
 
 let rec print_brackets = function
 		1 -> "[]"

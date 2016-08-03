@@ -506,11 +506,42 @@ let build_class_maps reserved_functions cdecls =
 let handle_inheritance cdecls class_maps = class_maps, cdecls
 		
 
+
+(*shanqi to do*)
+let rec local_handler d s e env = 
+	if StringMap.mem s env.env_locals 
+		then raise (Failure ("Duplicate Locals"))
+	else
+		let se, env = expr_to_sexpr env e in
+		let t = get_type_from_sexpr se in
+			let new_env = {
+			env_class_maps = env.env_class_maps;
+			env_name = env.env_name;
+			env_cmap = env.env_cmap;
+			env_locals = StringMap.add s d env.env_locals;
+			env_parameters = env.env_parameters;
+			env_returnType = env.env_returnType;
+			env_in_for = env.env_in_for;
+			env_in_while = env.env_in_while;
+			env_reserved = env.env_reserved;
+			} in 
+			(match d with
+			Datatype(Objecttype(x)) -> 
+				(if not (StringMap.mem (Ast.string_of_object d) env.env_class_maps) 
+					then raise (Failure ("Undefined Class")) 
+					else
+                        let local = SLocal(d, s, se) (*To Do*)
+                        in local, new_env)
+			| _ -> SLocal(d, s, se), new_env)
+
+
+
+
 (***********)
 (*  TASK4: Yanan *)
 (***********)
 
-(* convert statement is Ast to statement in Sast*)
+(* convert statement in Ast to statement in Sast*)
 let rec check_sblock sl env = match sl with
 		[] -> SBlock([SExpr(SNoexpr, Datatype(Void_t))]), env
 	| 	_  -> 
@@ -522,19 +553,37 @@ and check_expr_stmt e env =
 	let t = get_type_from_sexpr se in 
 	SExpr(se, t), env
 
+
+and check_return e env = 
+	let se, _ = expr_to_sexpr env e in
+	let t = get_type_from_sexpr se in
+	match t, env.env_returnType with 
+		Datatype(Null_t), Datatype(Objecttype(_)) 
+	| 	Datatype(Null_t), Arraytype(_, _) -> SReturn(se, t), env
+	| 	_ -> 
+	if t = env.env_returnType 
+		then SReturn(se, t), env
+		else raise (Failure ("Return Type Mismatch"))
+
+
+
 (* convert the constructor in ast to the function in Sast *)
 and  parse_stmt env = function
 		Block sl 		-> check_sblock sl env (*TODO*)
 	| 	Expr e 			-> check_expr_stmt e env (*TODO*)
+	| 	Return e 		-> check_return e env
+	|   Local(d, s, e) 	-> local_handler d s e env
+
+
 
 and  convert_stmt_list_to_sstmt_list env stmt_list =
 	let env_ref = ref(env) in
 	let rec iter = function
-	  head::tail ->
-		let a_head, env = parse_stmt !env_ref head in
-		env_ref := env;
-		a_head::(iter tail)
-	| [] -> []
+	  	head::tail ->
+			let a_head, env = parse_stmt !env_ref head in
+			env_ref := env;
+			a_head::(iter tail)
+		| [] -> []
 	in 
 	let sstmt_list = (iter stmt_list), !env_ref in
 	sstmt_list
@@ -664,11 +713,11 @@ let convert_ast_to_sast class_maps reserved_functions cdecls =
 	let scdecl_list, func_list =List.fold_left  iter_cdecls ([],[]) cdecls 		in
 	let main = get_main_func func_list in 
 	let funcs=  remove_main func_list in
-
-	{ classes = scdecl_list;
-	  functions = funcs;
-	  main = main;
-    	  reserved = reserved_functions;
+	{ 
+		classes = scdecl_list;
+	  	functions = funcs;
+	  	main = main;
+    	reserved = reserved_functions;
 	}
  
 

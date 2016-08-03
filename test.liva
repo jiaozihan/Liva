@@ -1,0 +1,10 @@
+class test {
+    int add(){
+        return(1);
+    }
+    void main(){
+        int a ;
+        a =1;
+        print ("hello");
+    } 
+}
