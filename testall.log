@@ -1,0 +1,18 @@
+/usr/local/opt/llvm/bin/lli
+
+###### Testing test-hello
+./liva < tests/test-hello.liva > test-hello.ll
+lli test-hello.ll > test-hello.out
+diff -b test-hello.out tests/test-hello.out > test-hello.diff
+###### SUCCESS
+
+###### Testing test-hello2
+./liva < tests/test-hello2.liva > test-hello2.ll
+lli test-hello2.ll > test-hello2.out
+diff -b test-hello2.out tests/test-hello2.out > test-hello2.diff
+###### SUCCESS
+
+###### Testing fail-hello
+./liva < tests/fail-hello.liva 2> fail-hello.err >> testall.log
+diff -b fail-hello.err tests/fail-hello.err > fail-hello.diff
+###### SUCCESS
