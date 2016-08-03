@@ -35,7 +35,7 @@ let struct_types:(string, lltype) Hashtbl.t = Hashtbl.create 10
 let struct_field_indexes:(string, int) Hashtbl.t = Hashtbl.create 50
 
 
-
+let str_type = Arraytype(Char_t, 1)(*to do*)
 
 
 let i32_t = i32_type context;;
@@ -137,7 +137,8 @@ and func_lookup fname =
 
 let rec codegen_print expr_list llbuilder = 
 	let printf = func_lookup "printf" in
-	let map_expr_to_printfexpr expr_list = codegen_sexpr expr_list llbuilder(*to do*)
+
+	let map_expr_to_printfexpr expr =  codegen_sexpr expr llbuilder
 	in
 
 	let params = List.map map_expr_to_printfexpr expr_list in
@@ -173,12 +174,18 @@ and codegen_call llbuilder d expr_list = function
 	| 	"sizeof"	-> codegen_sizeof expr_list llbuilder
 
 and codegen_id isDeref checkParam id d llbuilder = 
-		
+	if isDeref then
+		try Hashtbl.find named_params id
+		with | Not_found ->
+		try let _val = Hashtbl.find named_values id in
+			build_load _val id llbuilder
+		with | Not_found -> raise (Failure("unknown variable id"))
+	else		
 		try Hashtbl.find named_values id
 		with | Not_found ->
 			try 
 				let _val = Hashtbl.find named_params id in
-				 _val
+				L.build_load _val id llbuilder
 			with | Not_found -> raise (Failure("unknown var id"))
 
 and assign_gen lhs rhs d llbuilder = 

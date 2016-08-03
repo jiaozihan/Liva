@@ -514,6 +514,8 @@ let rec local_handler d s e env =
 	else
 		let se, env = expr_to_sexpr env e in
 		let t = get_type_from_sexpr se in
+		if t = Datatype(Void_t) || t = Datatype(Null_t) || t = d 
+			then
 			let new_env = {
 			env_class_maps = env.env_class_maps;
 			env_name = env.env_name;
@@ -534,7 +536,8 @@ let rec local_handler d s e env =
                         in local, new_env)
 			| _ -> SLocal(d, s, se), new_env)
 
-
+		else 
+			raise (Failure("local assignment type mismatch"))
 
 
 (***********)
