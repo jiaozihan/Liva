@@ -159,6 +159,38 @@ let rec codegen_print expr_list llbuilder =
 	let s = L.build_in_bounds_gep s [| zero |] "tmp" llbuilder in
 	build_call printf (Array.of_list (s :: params)) "tmp" llbuilder
 
+and handle_binop e1 op e2 d llbuilder =
+	let type1 = Semant.get_type_from_sexpr e1 in
+	let type2 = Semant.get_type_from_sexpr e2 in
+
+	(* Generate llvalues from e1 and e2 *)
+
+	let e1 = codegen_sexpr e1 llbuilder in
+	let e2 = codegen_sexpr e2 llbuilder in
+	
+	let float_ops op e1 e2 =
+		match op with
+			Add 		-> L.build_fadd e1 e2 "flt_addtmp" llbuilder
+		| 	Sub 		-> L.build_fsub e1 e2 "flt_subtmp" llbuilder
+	in
+
+	let int_ops op e1 e2 = 
+		match op with
+			Add 		-> L.build_add e1 e2 "addtmp" llbuilder
+		| 	Sub 		-> L.build_sub e1 e2 "subtmp" llbuilder
+	in	
+
+	(*let (e1, e2), d = cast e1 e2 type1 type2 llbuilder in*)
+
+	let type_handler d = match d with
+			Datatype(Float_t)   -> float_ops op e1 e2
+		|	Datatype(Int_t)	
+		|   Datatype(Bool_t)
+		| 	Datatype(Char_t) 	-> int_ops op e1 e2
+		|   _ -> raise (Failure("Invalid binop type"))
+	in
+
+	type_handler d
 
 
  (*L.build_call printf_func [| print_format e ; (codegen_sexpr e llbuilder) |]
@@ -189,13 +221,13 @@ and codegen_id isDeref checkParam id d llbuilder =
 			with | Not_found -> raise (Failure("unknown var id"))
 
 and assign_gen lhs rhs d llbuilder = 
-	let rhsType = Semant.get_type_from_sexpr rhs in
+	let rhs_t = Semant.get_type_from_sexpr rhs in
 	let lhs, isObjAccess = match lhs with
 		| Sast.SId(id, d) -> codegen_id false false id d llbuilder, false
 		| _ -> raise (Failure("Left hand side must be assignable"))
 	in
 	let rhs = match rhs with 
-		| 	Sast.SId(id, d) -> codegen_id false false id d llbuilder
+		| 	Sast.SId(id, d) -> codegen_id true false id d llbuilder
 		| _ -> codegen_sexpr rhs llbuilder
 	in
 	let rhs = match d with 
@@ -205,13 +237,13 @@ and assign_gen lhs rhs d llbuilder =
 		| 	Datatype(Null_t) -> const_null (get_type d)
 		| _ -> rhs 
 	in
-	let rhs = match d, rhsType with
-			Datatype(Char_t), Datatype(Int_t) -> build_uitofp rhs i8_t "tmp" llbuilder
-		| 	Datatype(Int_t), Datatype(Char_t) -> build_uitofp rhs i32_t "tmp" llbuilder
+	let rhs = match d, rhs_t with
+			Datatype(Char_t), Datatype(Int_t) -> L.build_uitofp rhs i8_t "tmp" llbuilder
+		| 	Datatype(Int_t), Datatype(Char_t) -> L.build_uitofp rhs i32_t "tmp" llbuilder
 		| 	_ -> rhs
 	in 
 	(* Lookup the name. *)
-	ignore(build_store rhs lhs llbuilder);
+	ignore(L.build_store rhs lhs llbuilder);
 	rhs
 
 and codegen_string_lit s llbuilder = 
@@ -236,12 +268,13 @@ and codegen_sexpr sexpr llbuilder =
 	*)
 	match sexpr with 
 		SInt_Lit(i) -> L.const_int i32_t i
-		| 	SString_Lit s   -> codegen_string_lit s llbuilder(* let temp= L.build_global_stringptr s "str" llbuilder in temp*)
 		| 	SBoolean_Lit(b) -> let temp = L.build_global_stringptr (string_of_boolean b) "str" llbuilder in temp
 		|   SFloat_Lit(f)   -> L.const_float f_t  f
+		|   SChar_Lit(c)    -> const_int i8_t (Char.code c)
+		| 	SString_Lit s   -> codegen_string_lit s llbuilder
+
 		|   SId(id, d)      -> codegen_id true false id d llbuilder
-		(*|   SCall("print", [e], d) ->   L.build_call printf_func [| print_format e ; (codegen_sexpr e llbuilder) |]
-	    "printf" llbuilder*)
+		|   SBinop(e1, op, e2, d)     	-> handle_binop e1 op e2 d llbuilder
 	    
 		|   SAssign(e1, e2, d)        	-> assign_gen e1 e2 d llbuilder
 	    |   SCall(fname, expr_list, d)  -> codegen_call llbuilder d expr_list fname

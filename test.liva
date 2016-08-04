@@ -5,10 +5,13 @@ class test {
     void main(){
 
 
-        int a ;
-        int b ;
-        a=1;
-        b=3;
-        print (a,"\n");
+        int a;
+        int b;
+        int c;
+        a = 1;
+        b = 2;
+        c = a;
+
+        print (c,"\n");
     } 
 }

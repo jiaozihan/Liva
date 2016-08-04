@@ -11,10 +11,13 @@ define i32 @main() {
 entry:
   %a = alloca i32
   %b = alloca i32
+  %c = alloca i32
   store i32 1, i32* %a
-  store i32 3, i32* %b
+  store i32 2, i32* %b
   %a1 = load i32* %a
-  %tmp = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([5 x i8]* @tmp1, i32 0, i32 0), i32 %a1, i8* getelementptr inbounds ([2 x i8]* @tmp, i32 0, i32 0))
+  store i32 %a1, i32* %c
+  %c2 = load i32* %c
+  %tmp = call i32 (i8*, ...)* @printf(i8* getelementptr inbounds ([5 x i8]* @tmp1, i32 0, i32 0), i32 %c2, i8* getelementptr inbounds ([2 x i8]* @tmp, i32 0, i32 0))
   ret i32 0
 }
 
