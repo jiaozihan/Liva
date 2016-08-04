@@ -1,11 +1,11 @@
-
-(* Semantic checking of a program. Returns Sast if successful,
-   throws an exception if something is wrong. *)
+(* Semantic checking for the Liva compiler *)
 
 open Ast
 open Sast
 
 
+(* Semantic checking of a program. Returns Sast if successful,
+   throws an exception if something is wrong. *)
 
 module StringMap = Map.Make(String)
 module StringSet = Set.Make (String)
@@ -549,24 +549,6 @@ and check_return e env =
 		then SReturn(se, t), env
 		else raise (Failure ("Return Type Mismatch"))
 
-and check_if_stmt e s1 s2 env = 
-	let se, _ = expr_to_sexpr env e in
-	let t = get_type_from_sexpr se in
-	let ifbody, _ = check_stmt env s1 in
-	let elsebody, _ = check_stmt env s2 in
-	if t = Datatype(Bool_t) 
-		then SIf(se, ifbody, elsebody), env
-		else raise ( Failure("Invalid If Statement Type"))
-
-and check_while_stmt e s env =
-	let se, _ = expr_to_sexpr env e in
-	let t = get_type_from_sexpr se in
-let sstmt, _ = check_stmt env s in
-
-if (t = Datatype(Bool_t) || t = Datatype(Void_t)) 
-			then SWhile(se, sstmt), env
-			else raise ( Failure("Invalid If Statement Type"))
-
 
 
 (* convert the constructor in ast to the function in Sast *)
@@ -574,9 +556,7 @@ and  check_stmt env = function
 		Block sl 		-> check_sblock sl env
 	| 	Expr e 			-> check_expr_stmt e env (*TODO*)
 	| 	Return e 		-> check_return e env
-	|       Local(d, s, e) 	-> local_handler d s e env
-	| 	If(e, s1, s2) 		-> check_if_stmt e s1 s2	env
-	|       While( e, s) 	-> check_while_stmt e s env
+	|   Local(d, s, e) 	-> local_handler d s e env
 
 
 
