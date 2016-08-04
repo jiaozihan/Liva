@@ -70,7 +70,7 @@ let default_sc cname =
 	sfname 		= Ast.FName (cname ^ "." ^ "constructor");
 	sreturnType = Datatype(Objecttype(cname));
 	sformals 	= [];
-	sbody 		= [] (*TODO*);
+	sbody 		= [];
 	func_type	= Sast.User;
 	source 		= "NA";
 }
@@ -124,7 +124,7 @@ let rec get_ID_type env s =
 		| Not_found -> try let formal = StringMap.find s env.env_parameters
 						   in (function   Formal(t, _) -> t 
 										| Many t -> t) formal
-					   with  | Not_found -> raise (Failure ("UndefinedID: " ^ s))
+					   with  | Not_found -> raise (Failure ("ID is undefined: " ^ s))
 
 and check_array_init env d el = 
 	let array_complexity = List.length el(*get the size of array*)
@@ -178,18 +178,18 @@ and check_array_access env e el =
 							in SArrayAccess(se, sel, sexpr_type)
 
 and check_obj_access env lhs rhs =
-	let check_lhs = function(*check the expression before ‘.’ and get sexpression*)
-		This 			-> SId("this", Datatype(Objecttype(env.env_name)))
-	|	Id s 			-> SId(s, get_ID_type env s)
-	| 	ArrayAccess(e, el)	-> check_array_access env e el 
-	| 	_ as e 	-> raise (Failure ("LHSofRootAccessMustBeIDorFunc: " ^ string_of_expr e))
+	let check_lhs =
+		function(*check the expression before ‘.’ and get sexpression*)
+			   This 			-> SId("this", Datatype(Objecttype(env.env_name)))
+			|  Id s 			-> SId(s, get_ID_type env s)
+			|  _ as e 	        -> raise (Failure ("LHS of object access must be an instance of certain class: " ^ string_of_expr e))
 	in
-	let ptype_name parent_type = match parent_type with (*get the type of the expression before ‘.’, i.e. class name*)
+	let get_cname parent_type = match parent_type with (*get the type of the expression before ‘.’, i.e. class name*)
 			Datatype(Objecttype(name)) 	-> name
-		| 	_ as d						-> raise (Failure ("ObjAccessMustHaveObjectType: " ^ string_of_datatype d))
+		| 	_ as d						-> raise (Failure ("Object access must have ObjectType: " ^ string_of_datatype d))
 	in
 	let rec check_rhs (env) parent_type=
-		let pt_name = ptype_name parent_type in(*get the class name*)
+		let pt_name = get_cname parent_type in(*get the class name*)
 		let get_id_type_from_object env (id) cname=
 			let cmap = StringMap.find cname env.env_class_maps in(*get the class map of current class*)
 			let match_field f = match f with (*get datatype of the expression after ‘.’*)
@@ -203,18 +203,6 @@ and check_obj_access env lhs rhs =
 		| 	Call(fname, el) 	-> (* Check functions*)
 				let env = update_env_name env pt_name in
 				check_call_type env fname el, env
-			(* Set parent, check if base is field *)
-		| 	ObjAccess(e1, e2) 	-> (*多个 '.'*)(*nested? 删?问问问问问*)
-				let old_env = env in
-				let lhs, env = check_rhs env parent_type e1 in
-				let lhs_type = get_type_from_sexpr lhs in
-
-				let pt_name = ptype_name lhs_type in
-				let lhs_env = update_env_name env pt_name in
-
-				let rhs, env = check_rhs lhs_env lhs_type e2 in
-				let rhs_type = get_type_from_sexpr rhs in
-				SObjAccess(lhs, rhs, rhs_type), old_env
 		| 	_ as e				-> raise (Failure ("InvalidAccessLHS: " ^ string_of_expr e))
 	in 
 	let arr_lhs, _ = expr_to_sexpr env lhs in(*convert expression to sexpression*)
@@ -222,7 +210,7 @@ and check_obj_access env lhs rhs =
 		let lhs = check_lhs lhs in
 		let lhs_type = get_type_from_sexpr lhs in 
 
-		let ptype_name = ptype_name lhs_type in
+		let ptype_name = get_cname lhs_type in
 		let lhs_env = update_env_name env ptype_name in
 
 		let rhs, _ = check_rhs lhs_env lhs_type rhs in
@@ -546,15 +534,15 @@ let rec local_handler d s e env =
 
 (* convert statement in Ast to statement in Sast*)
 let rec check_sblock sl env = match sl with
-		[] -> SBlock([SExpr(SNoexpr, Datatype(Void_t))]), env
-	| 	_  -> 
-		let sl, _ = convert_stmt_list_to_sstmt_list env sl in
-		SBlock(sl), env
+	  [] -> SBlock([SExpr(SNoexpr, Datatype(Void_t))]), env
+	|  _ -> let sl, _ = convert_stmt_list_to_sstmt_list env sl
+			in SBlock(sl), env
 
 and check_expr_stmt e env = 
-	let se, env = expr_to_sexpr env e in
-	let t = get_type_from_sexpr se in 
-	SExpr(se, t), env
+	let se, env = expr_to_sexpr env e
+	in
+		let t = get_type_from_sexpr se
+		in SExpr(se, t), env
 
 
 and check_return e env = 
@@ -571,8 +559,8 @@ and check_return e env =
 
 
 (* convert the constructor in ast to the function in Sast *)
-and  parse_stmt env = function
-		Block sl 		-> check_sblock sl env (*TODO*)
+and  check_stmt env = function
+		Block sl 		-> check_sblock sl env
 	| 	Expr e 			-> check_expr_stmt e env (*TODO*)
 	| 	Return e 		-> check_return e env
 	|   Local(d, s, e) 	-> local_handler d s e env
@@ -580,38 +568,40 @@ and  parse_stmt env = function
 
 
 and  convert_stmt_list_to_sstmt_list env stmt_list =
-	let env_ref = ref(env) in
-	let rec iter = function
-	  	head::tail ->
-			let a_head, env = parse_stmt !env_ref head in
-			env_ref := env;
-			a_head::(iter tail)
-		| [] -> []
+	let env_ref = ref(env)
+	in
+		let rec iter = function
+			  h::t -> let newh, newenv = check_stmt !env_ref h
+							in
+								(env_ref := newenv;
+								newh::(iter t))
+			| [] -> []
 	in 
-	let sstmt_list = (iter stmt_list), !env_ref in
-	sstmt_list
+		let sstmt_list = (iter stmt_list), !env_ref
+		in sstmt_list
 
 let convert_constructor_to_sfdecl class_maps reserved class_map cname constructor = 
 	let env = {
 		env_class_maps 	= class_maps;
 		env_name     	= cname;
-		env_cmap 	= class_map;
+		env_cmap 		= class_map;
 		env_locals    	= StringMap.empty;
 		env_parameters	= List.fold_left (fun m f -> match f with Formal(d, s) -> (StringMap.add s f m) | _ -> m) StringMap.empty constructor.formals;
 		env_returnType	= Datatype(Objecttype(cname));
-		env_in_for 	= false;
+		env_in_for 		= false;
 		env_in_while 	= false;
-		env_reserved 	= reserved;
-	} in 
-	let fbody = fst (convert_stmt_list_to_sstmt_list env constructor.body) in
-	{
-		sfname 		= Ast.FName (get_constructor_name cname constructor);
-		sreturnType 	= Datatype(Objecttype(cname));
-		sformals 	= constructor.formals;
-		sbody 		= []; (*TODO*)
-		func_type	= Sast.User;
-		source 		= "NA";
-	}
+		env_reserved 	= reserved;}
+	in 
+		let fbody = fst (convert_stmt_list_to_sstmt_list env constructor.body)
+		in
+			{
+				sfname 		= Ast.FName(get_constructor_name cname constructor);
+				sreturnType = Datatype(Objecttype(cname));
+				sformals 	= constructor.formals;
+				sbody 		= []; (*TODO*)
+				func_type	= Sast.User;
+				source 		= "NA";
+			}
 
 let check_fbody fname fbody returnType =
 	let len = List.length fbody in
@@ -675,59 +665,48 @@ let convert_cdecl_to_sast sfdecls (cdecl: Ast.class_decl) =
 
 (* Convert ast to sast*)
 let convert_ast_to_sast class_maps reserved_functions cdecls = 
-
-
-	let check_main = (fun f -> match f.sfname with FName s -> s="main") in
-
-	let get_main_func fdecls = 
-	    let main_funs = (List.filter check_main fdecls) in
-
-	    if List.length main_funs> 1 then 
-		raise (Failure("Multiple main functions are found"))
-	    else if List.length main_funs <1 then
- 		raise (Failure("Main function is not found!"))
-	    else List.hd main_funs
-
-	in let remove_main func_list=
-		 List.filter (fun f -> not(check_main f)) func_list 
-	
-	in let check_default_constructor cdecl clist =
-		let default_cname = cdecl.cname ^ "." ^ "Constructor" 			in let check_default_c f=  match f.sfname with FName n -> 				n=default_cname
-		in try let _ = List.find check_default_c clist in clist
-		   with | Not_found -> clist
-		   
-			    
-	in 
-
-	let handle_cdecl cdecl =
-		let class_map =StringMap.find cdecl.cname class_maps in
-		let sconstructor_list = List.fold_left (fun l c -> (convert_constructor_to_sfdecl class_maps reserved_functions class_map cdecl.cname c)::l) [] cdecl.cbody.constructors in
-
-		let sconstructor_list = check_default_constructor cdecl sconstructor_list in 
- 		let func_list = List.fold_left (fun l f -> (convert_fdecl_to_sfdecl class_maps reserved_functions class_map cdecl.cname f):: l) [] cdecl.cbody.methods in 
-		let sfunc_list = remove_main  func_list in
-		let scdecl = convert_cdecl_to_sast sfunc_list cdecl in 
-		(scdecl, func_list @sconstructor_list)
-	in 
-	let iter_cdecls t c = 
-		let scdecl =handle_cdecl c in 
-		(fst scdecl::fst t, snd scdecl @ snd t)
+	let is_main fdecl = fdecl.sfname = FName("main")
 	in
-	let scdecl_list, func_list =List.fold_left  iter_cdecls ([],[]) cdecls 		in
-	let main = get_main_func func_list in 
-	let funcs=  remove_main func_list in
-	{ 
-		classes = scdecl_list;
-	  	functions = funcs;
-	  	main = main;
-    	reserved = reserved_functions;
-	}
- 
-
-
-
-
-
+		let check_main fdecls = 
+	    let main = (List.filter is_main fdecls)
+		in
+			if List.length main > 1
+				then raise (Failure("Multiple main functions are found!"))
+			else if List.length main < 1
+				then raise (Failure("Main function is not found!"))
+			else List.hd main
+		in
+			let pick_main func_list = List.filter (fun f -> not(is_main f)) func_list 
+			in
+				let handle_cdecl cdecl =
+				let class_map =StringMap.find cdecl.cname class_maps
+				in
+					let sconstructor_list = List.map (convert_constructor_to_sfdecl class_maps reserved_functions class_map cdecl.cname) cdecl.cbody.constructors
+					in
+						let func_list = List.fold_left (fun l f -> (convert_fdecl_to_sfdecl class_maps reserved_functions class_map cdecl.cname f):: l) [] cdecl.cbody.methods
+						in 
+							let sfunc_list = pick_main  func_list
+							in
+								let scdecl = convert_cdecl_to_sast sfunc_list cdecl
+								in (scdecl, func_list @sconstructor_list)
+					in 
+						let iter_cdecls t c = 
+						let scdecl =handle_cdecl c
+						in (fst scdecl::fst t, snd scdecl @ snd t)
+						in
+							let scdecl_list, func_list =List.fold_left  iter_cdecls ([],[]) cdecls
+							in
+								let main = check_main func_list 
+								in 
+									let funcs=  pick_main func_list
+									in
+										{ 
+											classes = scdecl_list;
+											functions = funcs;
+											main = main;
+											reserved = reserved_functions;
+										}
+											
 (***********************************************************)
 (* Entry point for translating Ast to Sast *)
 (***********************************************************)
