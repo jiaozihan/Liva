@@ -38,6 +38,8 @@ let struct_field_indexes:(string, int) Hashtbl.t = Hashtbl.create 50
 let str_type = Arraytype(Char_t, 1)(*to do*)
 
 
+
+
 let i32_t = i32_type context;;
 let i8_t = i8_type context;;
 let f_t = double_type context;;
@@ -45,6 +47,13 @@ let i1_t = i1_type context;;
 let str_t = pointer_type i8_t;;
 let i64_t = i64_type context;;
 let void_t = void_type context;;
+
+(*control flow references*)
+let br_block = ref (L.block_of_value (L.const_int i32_t 0))
+and cont_block = ref (L.block_of_value (L.const_int i32_t 0))
+and is_loop = ref false 
+
+
 
 let find_struct name = 
 	try Hashtbl.find struct_types name
@@ -159,7 +168,7 @@ let rec codegen_print expr_list llbuilder =
 	let s = L.build_in_bounds_gep s [| zero |] "tmp" llbuilder in
 	build_call printf (Array.of_list (s :: params)) "tmp" llbuilder
 
-and binop_gen e1 op e2 d llbuilder =
+and handle_binop e1 op e2 d llbuilder =
 	let type1 = Semant.get_type_from_sexpr e1 in
 	let type2 = Semant.get_type_from_sexpr e2 in
 
@@ -172,34 +181,12 @@ and binop_gen e1 op e2 d llbuilder =
 		match op with
 			Add 		-> L.build_fadd e1 e2 "flt_addtmp" llbuilder
 		| 	Sub 		-> L.build_fsub e1 e2 "flt_subtmp" llbuilder
-		| 	Mult 		-> L.build_fmul e1 e2 "flt_multmp" llbuilder
-		| 	Div 		-> L.build_fdiv e1 e2 "flt_divtmp" llbuilder
-		| 	Mod 		-> L.build_frem e1 e2 "flt_sremtmp" llbuilder
-		| 	Equal 		-> L.build_fcmp Fcmp.Oeq e1 e2 "flt_eqtmp" llbuilder
-		| 	Neq 		-> L.build_fcmp Fcmp.One e1 e2 "flt_neqtmp" llbuilder
-		| 	Less 		-> L.build_fcmp Fcmp.Ult e1 e2 "flt_lesstmp" llbuilder
-		| 	Leq 		-> L.build_fcmp Fcmp.Ole e1 e2 "flt_leqtmp" llbuilder
-		| 	Greater		-> L.build_fcmp Fcmp.Ogt e1 e2 "flt_sgttmp" llbuilder
-		| 	Geq 		-> L.build_fcmp Fcmp.Oge e1 e2 "flt_sgetmp" llbuilder
-		| 	_ 			-> raise(Failure("Invalid operator for floats"))
 	in
 
 	let int_ops op e1 e2 = 
 		match op with
 			Add 		-> L.build_add e1 e2 "addtmp" llbuilder
 		| 	Sub 		-> L.build_sub e1 e2 "subtmp" llbuilder
-		| 	Mult 		-> L.build_mul e1 e2 "multmp" llbuilder
-		| 	Div 		-> L.build_sdiv e1 e2 "divtmp" llbuilder
-		| 	Mod 		-> L.build_srem e1 e2 "sremtmp" llbuilder
-		| 	Equal 		-> L.build_icmp Icmp.Eq e1 e2 "eqtmp" llbuilder
-		| 	Neq 		-> L.build_icmp Icmp.Ne e1 e2 "neqtmp" llbuilder
-		| 	Less 		-> L.build_icmp Icmp.Slt e1 e2 "lesstmp" llbuilder
-		| 	Leq 		-> L.build_icmp Icmp.Sle e1 e2 "leqtmp" llbuilder
-		| 	Greater		-> L.build_icmp Icmp.Sgt e1 e2 "sgttmp" llbuilder
-		| 	Geq 		-> L.build_icmp Icmp.Sge e1 e2 "sgetmp" llbuilder
-		| 	And 		-> L.build_and e1 e2 "andtmp" llbuilder
-		| 	Or 			-> L.build_or  e1 e2 "ortmp" llbuilder
-		| 	_ 			-> raise(Failure("Invalid operator for integers"))
 	in	
 
 	(*let (e1, e2), d = cast e1 e2 type1 type2 llbuilder in*)
@@ -274,19 +261,19 @@ and codegen_string_lit s llbuilder =
 	else build_global_stringptr s "tmp" llbuilder
 
 and codegen_sexpr sexpr llbuilder = 
-
+	
 	match sexpr with 
-		SInt_Lit(i) -> L.const_int i32_t i
-		| 	SBoolean_Lit(b) -> let temp = L.build_global_stringptr (string_of_boolean b) "str" llbuilder in temp
+		    SInt_Lit(i) -> L.const_int i32_t i
+		|   SBoolean_Lit(b) -> if b then const_int i1_t 1 else const_int i1_t 0
 		|   SFloat_Lit(f)   -> L.const_float f_t  f
 		|   SChar_Lit(c)    -> const_int i8_t (Char.code c)
-		| 	SString_Lit s   -> codegen_string_lit s llbuilder
+		|   SString_Lit s   -> codegen_string_lit s llbuilder
 
 		|   SId(id, d)      -> codegen_id true false id d llbuilder
-		|   SBinop(e1, op, e2, d)     	-> binop_gen e1 op e2 d llbuilder
+		|   SBinop(e1, op, e2, d)     	-> handle_binop e1 op e2 d llbuilder
 	    
 		|   SAssign(e1, e2, d)        	-> assign_gen e1 e2 d llbuilder
-	    |   SCall(fname, expr_list, d)  -> codegen_call llbuilder d expr_list fname
+	        |   SCall(fname, expr_list, d)  -> codegen_call llbuilder d expr_list fname
   
 and codegen_alloca datatype var_name expr llbuilder = 
 	let t = match datatype with 
@@ -306,6 +293,16 @@ and codegen_ret d expr llbuilder =
 		| SNoexpr -> build_ret_void llbuilder
 		| _ -> L.build_ret (codegen_sexpr expr llbuilder) llbuilder
 
+and codegen_continue llbuilder =
+	let b= fun() -> !cont_block in
+	L.build_br (b()) llbuilder
+
+and codegen_break llbuilder =
+  	let b= fun() -> !br_block in
+	L.build_br (b ()) llbuilder
+
+
+
 (*statement code generation*)
 and codegen_stmt llbuilder = function 
 
@@ -313,6 +310,70 @@ and codegen_stmt llbuilder = function
 	| SExpr (se, _)	   -> codegen_sexpr se llbuilder
 	| SReturn(e, d)    -> codegen_ret d e llbuilder
 	| SLocal(d, s, e)  -> codegen_alloca d s e llbuilder
+	| SBreak 	   -> codegen_break llbuilder 
+	| SContinue    	   -> codegen_continue llbuilder
+	| SIf (se, s1, s2)  -> codegen_if_stmt se s1 s2 llbuilder
+
+
+
+and codegen_for_stmt init cond increase body llbuilder = "t0 do"
+
+		
+
+
+
+and codegen_while_stmt cond body illbuilder = "to do"
+
+
+
+
+
+
+
+
+and codegen_if_stmt pred then_stmt else_stmt llbuilder =
+	let cond= codegen_sexpr pred llbuilder in
+
+	let start_bb = insertion_block llbuilder in
+	let the_function = block_parent start_bb in
+
+	let then_bb = append_block context "then" the_function in
+
+	position_at_end then_bb llbuilder;
+	let then_val = codegen_stmt llbuilder then_stmt in
+
+
+	let new_then_bb = insertion_block llbuilder in
+
+	let else_bb = append_block context "else" the_function in
+	position_at_end else_bb llbuilder;
+	let else_val= codegen_stmt llbuilder else_stmt in
+
+
+	let new_else_bb = insertion_block llbuilder in
+
+	
+	let merge_bb = append_block context "ifcont" the_function in
+	position_at_end merge_bb builder;
+	let incoming = [(then_val, new_then_bb); (else_val, new_else_bb)] in
+	let phi = build_phi incoming "iftmp" builder in
+	
+
+	
+	position_at_end start_bb llbuilder;
+	ignore (build_cond_br cond then_bb else_bb llbuilder);
+
+
+	position_at_end new_then_bb llbuilder; ignore (build_br merge_bb llbuilder);
+	position_at_end new_else_bb llbuilder; ignore (build_br merge_bb llbuilder);
+
+	(* Finally, set the builder to the end of the merge block. *)
+	position_at_end merge_bb llbuilder;
+
+	phi
+
+
+	
 	
 (*function code generation*)
 let codegen_func_stub sfdecl=
