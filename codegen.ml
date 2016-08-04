@@ -159,7 +159,7 @@ let rec codegen_print expr_list llbuilder =
 	let s = L.build_in_bounds_gep s [| zero |] "tmp" llbuilder in
 	build_call printf (Array.of_list (s :: params)) "tmp" llbuilder
 
-and handle_binop e1 op e2 d llbuilder =
+and binop_gen e1 op e2 d llbuilder =
 	let type1 = Semant.get_type_from_sexpr e1 in
 	let type2 = Semant.get_type_from_sexpr e2 in
 
@@ -172,12 +172,34 @@ and handle_binop e1 op e2 d llbuilder =
 		match op with
 			Add 		-> L.build_fadd e1 e2 "flt_addtmp" llbuilder
 		| 	Sub 		-> L.build_fsub e1 e2 "flt_subtmp" llbuilder
+		| 	Mult 		-> L.build_fmul e1 e2 "flt_multmp" llbuilder
+		| 	Div 		-> L.build_fdiv e1 e2 "flt_divtmp" llbuilder
+		| 	Mod 		-> L.build_frem e1 e2 "flt_sremtmp" llbuilder
+		| 	Equal 		-> L.build_fcmp Fcmp.Oeq e1 e2 "flt_eqtmp" llbuilder
+		| 	Neq 		-> L.build_fcmp Fcmp.One e1 e2 "flt_neqtmp" llbuilder
+		| 	Less 		-> L.build_fcmp Fcmp.Ult e1 e2 "flt_lesstmp" llbuilder
+		| 	Leq 		-> L.build_fcmp Fcmp.Ole e1 e2 "flt_leqtmp" llbuilder
+		| 	Greater		-> L.build_fcmp Fcmp.Ogt e1 e2 "flt_sgttmp" llbuilder
+		| 	Geq 		-> L.build_fcmp Fcmp.Oge e1 e2 "flt_sgetmp" llbuilder
+		| 	_ 			-> raise(Failure("Invalid operator for floats"))
 	in
 
 	let int_ops op e1 e2 = 
 		match op with
 			Add 		-> L.build_add e1 e2 "addtmp" llbuilder
 		| 	Sub 		-> L.build_sub e1 e2 "subtmp" llbuilder
+		| 	Mult 		-> L.build_mul e1 e2 "multmp" llbuilder
+		| 	Div 		-> L.build_sdiv e1 e2 "divtmp" llbuilder
+		| 	Mod 		-> L.build_srem e1 e2 "sremtmp" llbuilder
+		| 	Equal 		-> L.build_icmp Icmp.Eq e1 e2 "eqtmp" llbuilder
+		| 	Neq 		-> L.build_icmp Icmp.Ne e1 e2 "neqtmp" llbuilder
+		| 	Less 		-> L.build_icmp Icmp.Slt e1 e2 "lesstmp" llbuilder
+		| 	Leq 		-> L.build_icmp Icmp.Sle e1 e2 "leqtmp" llbuilder
+		| 	Greater		-> L.build_icmp Icmp.Sgt e1 e2 "sgttmp" llbuilder
+		| 	Geq 		-> L.build_icmp Icmp.Sge e1 e2 "sgetmp" llbuilder
+		| 	And 		-> L.build_and e1 e2 "andtmp" llbuilder
+		| 	Or 			-> L.build_or  e1 e2 "ortmp" llbuilder
+		| 	_ 			-> raise(Failure("Invalid operator for integers"))
 	in	
 
 	(*let (e1, e2), d = cast e1 e2 type1 type2 llbuilder in*)
@@ -252,20 +274,7 @@ and codegen_string_lit s llbuilder =
 	else build_global_stringptr s "tmp" llbuilder
 
 and codegen_sexpr sexpr llbuilder = 
-	(*
-	let int_format_str = L.build_global_stringptr "%d\n" "fmt" llbuilder in
-	let str_format_str = L.build_global_stringptr "%s\n" "fmt_string" llbuilder in
-	let bool_format_str = L.build_global_stringptr "%s\n" "fmt_string" llbuilder in
-	let float_format_str = L.build_global_stringptr "%f\n" "fmt_float" llbuilder in
-	let rec print_format e =
-		(match e with 
-		  S.SString_Lit(_) -> str_format_str
-		| S.SInt_Lit(_) -> int_format_str
-		| S.SBoolean_Lit(_) -> bool_format_str
-		| S. SFloat_Lit (_) -> float_format_str
-		)
-	in
-	*)
+
 	match sexpr with 
 		SInt_Lit(i) -> L.const_int i32_t i
 		| 	SBoolean_Lit(b) -> let temp = L.build_global_stringptr (string_of_boolean b) "str" llbuilder in temp
@@ -274,7 +283,7 @@ and codegen_sexpr sexpr llbuilder =
 		| 	SString_Lit s   -> codegen_string_lit s llbuilder
 
 		|   SId(id, d)      -> codegen_id true false id d llbuilder
-		|   SBinop(e1, op, e2, d)     	-> handle_binop e1 op e2 d llbuilder
+		|   SBinop(e1, op, e2, d)     	-> binop_gen e1 op e2 d llbuilder
 	    
 		|   SAssign(e1, e2, d)        	-> assign_gen e1 e2 d llbuilder
 	    |   SCall(fname, expr_list, d)  -> codegen_call llbuilder d expr_list fname
