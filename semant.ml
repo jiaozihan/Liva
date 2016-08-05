@@ -74,11 +74,12 @@ let append_code_to_constructor fbody cname ret_type =
 		SCall(	"cast", 
 				[SCall("malloc", 
 					[	
-						SCall("sizeof", [SId("ignore", ret_type)], Datatype(Int_t))
+						SCall("sizeof", [SId("ignore", ret_type)], Datatype(Int_t),0)
 					], 
-					Arraytype(Char_t, 1))
+					Arraytype(Char_t, 1),0)
 				],
-				ret_type
+				ret_type,
+				0
 			)
 		);
 		SExpr(
@@ -281,6 +282,28 @@ and check_call_type env fname el =
 							then param
 						else raise (Failure ("Incompatible type for function: " ^ string_of_datatype ptyp ^ " -> " ^ string_of_datatype ftyp ^ " expected for function " ^ fname))
 			in
+
+
+			let get_index fdecl fname =
+				let cdecl = cmap.cdecl in
+
+				let fns = List.rev cdecl.cbody.methods in
+				let rec find x lst =
+				    match lst with
+				    | [] -> raise (Failure ("Could not find " ^ fname))
+				    | fdecl :: t -> 
+				    	let search_name = (get_name env.env_name fdecl) in
+				    	if x = search_name then 0 
+				    	else if search_name = "main" then find x t 
+				    	else 1 + find x t
+				in
+				find fname fns
+			in
+
+
+
+
+
 				let check_params formals params = match formals, params with (*check parameter according to amount*)
 														  [Many(Any)], _ -> params
 														| [], []         -> []
@@ -292,13 +315,14 @@ and check_call_type env fname el =
 						let func = StringMap.find fname cmap.reserved_functions_map
 						in
 							let actuals = check_params func.sformals sel
-							in SCall(fname, actuals, func.sreturnType)
+							in SCall(fname, actuals, func.sreturnType,0)
 					with | Not_found -> let sfname = env.env_name ^ "." ^ fname
 										in
 											try let f = StringMap.find sfname cmap.func_map
 												in
-													let actuals = check_params f.formals sel
-													in SCall(sfname, actuals, f.returnType)
+													let actuals = check_params f.formals sel in
+													let index = get_index f sfname in
+													SCall(sfname, actuals, f.returnType, index)
 											with | Not_found -> raise (Failure ("Function is not found: " ^ sfname))
 
 and check_object_constructor env s el =
@@ -407,7 +431,7 @@ and get_type_from_sexpr = function(*get the type of sexpression*)
 | 	SArrayCreate(_, _, d)	-> d
 | 	SArrayAccess(_, _, d) 	-> d
 | 	SObjAccess(_, _, d)		-> d
-| 	SCall(_, _, d)		-> d
+| 	SCall(_, _, d,_)		-> d
 |   SObjectCreate(_, _, d) 	-> d
 | 	SArrayPrimitive(_, d)	-> d
 |  	SUnop(_, _, d) 			-> d
