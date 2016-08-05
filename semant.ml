@@ -82,40 +82,37 @@ let get_name cname fdecl = (*get the name of function,cname.constructor-> constr
 		then "main"
 	else cname ^ "." ^ name
 
-let get_equality_binop_type type1 type2 se1 se2 op =
+let get_sbinop_equal type1 type2 se1 se2 op =
 	if (type1 = Datatype(Float_t) || type2 = Datatype(Float_t)) (*unqualified types*)
-		then raise (Failure ("InvalidBinopExpression: " ^ "Equality operation is not supported for Float types"))
+		then raise (Failure ("Equality operation is not supported for Float types"))
 	else
 		match type1, type2 with (*qualified types*)
-			  Datatype(Char_t), Datatype(Int_t) 
-			| Datatype(Int_t), Datatype(Char_t)
-			| Datatype(Objecttype(_)), Datatype(Null_t)
+			  Datatype(Objecttype(_)), Datatype(Null_t)
 			| Datatype(Null_t), Datatype(Objecttype(_))	 -> SBinop(se1, op, se2, Datatype(Bool_t))
 			| _                                          -> if type1 = type2
 																then SBinop(se1, op, se2, Datatype(Bool_t))
-															else raise (Failure ("InvalidBinopExpression: " ^ "Equality operator can't operate on different types, with the exception of Int_t and Char_t"))
+															else raise (Failure ("Invalid equality operator for these types: " ^ (string_of_datatype type1) ^ " <-> " ^ (string_of_datatype type2)))
 
-let get_logical_binop_type se1 se2 op = function (*check operants and conver to sbinop*)
-	 (Datatype(Bool_t), Datatype(Bool_t)) -> SBinop(se1, op, se2, Datatype(Bool_t))
-	| _                                   -> raise (Failure ("InvalidBinopExpression: " ^ "Logical operators only operate on Bool_t types"))
+let get_sbinop_logic type1 type2 se1 se2 op =(*check operants and conver to sbinop*)
+	match type1, type2 with
+		   Datatype(Bool_t), Datatype(Bool_t) -> SBinop(se1, op, se2, Datatype(Bool_t))
+		|  _                                  -> raise (Failure ("Invalid type for logical operator" ^ (string_of_datatype type1) ^ "<->" ^ (string_of_datatype type2)))
 
-let get_comparison_binop_type type1 type2 se1 se2 op =
-	let numerics = SS.of_list [Datatype(Int_t); Datatype(Char_t); Datatype(Float_t)](*qualified operant types*)
-	in
-		if SS.mem type1 numerics && SS.mem type2 numerics
-			then SBinop(se1, op, se2, Datatype(Bool_t))
-		else raise (Failure ("InvalidBinopExpression: " ^ "Comparison operators operate on numeric types only"))
+let get_sbinop_compa type1 type2 se1 se2 op =
+	match type1, type2 with
+		   Datatype(Int_t), Datatype(Float_t)
+		|  Datatype(Float_t), Datatype(Int_t) -> SBinop(se1, op, se2, Datatype(Bool_t))
+		|  _								  -> if type1 = type2
+													then SBinop(se1, op, se2, Datatype(Bool_t))
+												 else raise (Failure ("Invalid type for comparison operator: " ^ (string_of_datatype type1) ^ "<->" ^ (string_of_datatype type2)))
 
-let get_arithmetic_binop_type se1 se2 op = function
-	(*qualified combination of operant type*)
-	  (Datatype(Int_t), Datatype(Float_t)) 
-	| (Datatype(Float_t), Datatype(Int_t)) 
-	| (Datatype(Float_t), Datatype(Float_t)) -> SBinop(se1, op, se2, Datatype(Float_t))
-	| (Datatype(Int_t), Datatype(Char_t)) 
-	| (Datatype(Char_t), Datatype(Int_t)) 
-	| (Datatype(Char_t), Datatype(Char_t)) 	 -> SBinop(se1, op, se2, Datatype(Char_t))
-	| (Datatype(Int_t), Datatype(Int_t)) 	 -> SBinop(se1, op, se2, Datatype(Int_t))
-	| _ -> raise (Failure ("Arithmetic operators don't support these types"))
+let get_sbinop_arith type1 type2 se1 se2 op =
+	match type1, type2 with (*qualified combination of operant type*)
+		   Datatype(Int_t), Datatype(Float_t)
+		|  Datatype(Float_t), Datatype(Int_t) 
+		|  Datatype(Float_t), Datatype(Float_t) -> SBinop(se1, op, se2, Datatype(Float_t))
+		|  Datatype(Int_t), Datatype(Int_t) 	-> SBinop(se1, op, se2, Datatype(Int_t))
+		|  _ -> raise (Failure ("Invalid type for arithmetic operator: " ^ (string_of_datatype type1) ^ "<->" ^ (string_of_datatype type2)))
 
 let rec get_ID_type env s = 
 	try
@@ -322,11 +319,11 @@ and check_binop env e1 op e2 =
 	let type2 = get_type_from_sexpr se2(*get the type of sexpression*)
 	in
 		match op with(*check and convert binopexpression according to binopexpression type*)
-				Equal | Neq                  -> get_equality_binop_type type1 type2 se1 se2 op
-			|	And | Or                     -> get_logical_binop_type se1 se2 op (type1, type2)
-			|	Less | Leq | Greater | Geq   -> get_comparison_binop_type type1 type2 se1 se2 op
-			|	Add | Mult | Sub | Div | Mod -> get_arithmetic_binop_type se1 se2 op (type1, type2) 
-			| 	_                            -> raise (Failure ("InvalidBinopExpression: " ^ (string_of_op op) ^ " is not a supported binary op"))
+				Equal | Neq                  -> get_sbinop_equal type1 type2 se1 se2 op
+			|	And | Or                     -> get_sbinop_logic type1 type2 se1 se2 op 
+			|	Less | Leq | Greater | Geq   -> get_sbinop_compa type1 type2 se1 se2 op
+			|	Add | Mult | Sub | Div | Mod -> get_sbinop_arith type1 type2 se1 se2 op 
+			| 	_                            -> raise (Failure ("Invalid binop operator: " ^ (string_of_op op)))
 
 and expr_to_sexpr env = function
 	Int_Lit i           -> SInt_Lit(i), env
@@ -489,37 +486,37 @@ let handle_inheritance cdecls class_maps = class_maps, cdecls
 
 
 (*shanqi to do*)
-let rec local_handler d s e env = 
+let rec check_local d s e env = 
 	if StringMap.mem s env.env_locals 
-		then raise (Failure ("Duplicate Locals"))
+		then raise (Failure ("Duplicate Local: " ^ s))
 	else
 		let se, env = expr_to_sexpr env e in
 		let t = get_type_from_sexpr se in
-		if t = Datatype(Void_t) || t = Datatype(Null_t) || t = d 
+		if t = Datatype(Void_t) || t = Datatype(Null_t) || t = d (* || (inherited d t) *)
 			then
 			let new_env = {
-			env_class_maps = env.env_class_maps;
-			env_name = env.env_name;
-			env_cmap = env.env_cmap;
-			env_locals = StringMap.add s d env.env_locals;
-			env_parameters = env.env_parameters;
-			env_returnType = env.env_returnType;
-			env_in_for = env.env_in_for;
-			env_in_while = env.env_in_while;
-			env_reserved = env.env_reserved;
-			} in 
-			(match d with
-			Datatype(Objecttype(x)) -> 
-				(if not (StringMap.mem (Ast.string_of_object d) env.env_class_maps) 
-					then raise (Failure ("Undefined Class")) 
-					else
-                        let local = SLocal(d, s, se) (*To Do*)
-                        in local, new_env)
-			| _ -> SLocal(d, s, se), new_env)
+				env_class_maps = env.env_class_maps;
+				env_name = env.env_name;
+				env_cmap = env.env_cmap;
+				env_locals = StringMap.add s d env.env_locals; (* add new locals *)
+				env_parameters = env.env_parameters;
+				env_returnType = env.env_returnType;
+				env_in_for = env.env_in_for;
+				env_in_while = env.env_in_while;
+				env_reserved = env.env_reserved;
+			} 
+			in 
+				match d with
+					  Datatype(Objecttype(x)) ->
+						if not (StringMap.mem (Ast.string_of_object d) env.env_class_maps) 
+							then raise (Failure ("Undefined Class: " ^ string_of_object d )) 
+						else
+							let local = SLocal(d, s, se) (*To Do about inherited *)
+							in local, new_env
+					|  _ -> SLocal(d, s, se), new_env
 
 		else 
-			raise (Failure("local assignment type mismatch"))
-
+			raise (Failure("Local assignment type mismatch: " ^ Ast.string_of_datatype d ^ " <-> " ^ Ast.string_of_datatype t))
 
 (***********)
 (*  TASK4: Yanan *)
@@ -537,28 +534,22 @@ and check_expr_stmt e env =
 		let t = get_type_from_sexpr se
 		in SExpr(se, t), env
 
-
 and check_return e env = 
 	let se, _ = expr_to_sexpr env e in
 	let t = get_type_from_sexpr se in
-	match t, env.env_returnType with 
-		Datatype(Null_t), Datatype(Objecttype(_)) 
-	| 	Datatype(Null_t), Arraytype(_, _) -> SReturn(se, t), env
-	| 	_ -> 
-	if t = env.env_returnType 
-		then SReturn(se, t), env
-		else raise (Failure ("Return Type Mismatch"))
-
-
+	match t, env.env_returnType with
+		   Datatype(Null_t), Datatype(Objecttype(_)) -> SReturn(se, t), env
+		|  _										 -> 
+			if t = env.env_returnType 
+				then SReturn(se, t), env
+			else raise (Failure ("Return Type Mismatch"))
 
 (* convert the constructor in ast to the function in Sast *)
 and  check_stmt env = function
 		Block sl 		-> check_sblock sl env
-	| 	Expr e 			-> check_expr_stmt e env (*TODO*)
+	| 	Expr e 			-> check_expr_stmt e env
 	| 	Return e 		-> check_return e env
-	|   Local(d, s, e) 	-> local_handler d s e env
-
-
+	|   Local(d, s, e) 	-> check_local d s e env
 
 and  convert_stmt_list_to_sstmt_list env stmt_list =
 	let env_ref = ref(env)
@@ -591,7 +582,7 @@ let convert_constructor_to_sfdecl class_maps reserved class_map cname constructo
 				sfname 		= Ast.FName(get_constructor_name cname constructor);
 				sreturnType = Datatype(Objecttype(cname));
 				sformals 	= constructor.formals;
-				sbody 		= []; (*TODO*)
+				sbody 		= fbody; (*TODO*)
 				func_type	= Sast.User;
 				source 		= "NA";
 			}
@@ -647,7 +638,6 @@ let convert_fdecl_to_sfdecl class_maps reserved class_map cname fdecl=
 		func_type	= Sast.User;
 		source 		= cname;
 	}
-	
 
 (*convert the class in ast to sast type*)
 let convert_cdecl_to_sast sfdecls (cdecl: Ast.class_decl) =
@@ -660,49 +650,47 @@ let convert_cdecl_to_sast sfdecls (cdecl: Ast.class_decl) =
 let convert_ast_to_sast class_maps reserved_functions cdecls = 
 	let is_main fdecl = fdecl.sfname = FName("main")
 	in
-		let check_main fdecls = 
-	    let main = (List.filter is_main fdecls)
+	let check_main fdecls = 
+		let main = (List.filter is_main fdecls)
 		in
 			if List.length main > 1
 				then raise (Failure("Multiple main functions are found!"))
 			else if List.length main < 1
 				then raise (Failure("Main function is not found!"))
 			else List.hd main
+	in
+	let pick_main func_list = List.filter (fun f -> not(is_main f)) func_list 
+	in
+	let handle_cdecl cdecl =
+	let class_map =StringMap.find cdecl.cname class_maps
+	in
+	let sconstructor_list = match cdecl.cbody.constructors with
+										   [] -> (default_sc cdecl.cname) :: [](*no user defined constructor*)
+										|  _  -> List.map (convert_constructor_to_sfdecl class_maps reserved_functions class_map cdecl.cname) cdecl.cbody.constructors
+	in
+	let func_list = List.fold_left (fun l f -> (convert_fdecl_to_sfdecl class_maps reserved_functions class_map cdecl.cname f):: l) [] cdecl.cbody.methods
+	in 
+		let sfunc_list = pick_main  func_list
 		in
-			let pick_main func_list = List.filter (fun f -> not(is_main f)) func_list 
-			in
-				let handle_cdecl cdecl =
-				let class_map =StringMap.find cdecl.cname class_maps
+			let scdecl = convert_cdecl_to_sast sfunc_list cdecl
+			in (scdecl, func_list @sconstructor_list)
+in 
+	let iter_cdecls t c = 
+	let scdecl =handle_cdecl c
+	in (fst scdecl::fst t, snd scdecl @ snd t)
+	in
+		let scdecl_list, func_list =List.fold_left  iter_cdecls ([],[]) cdecls
+		in
+			let main = check_main func_list 
+			in 
+				let funcs=  pick_main func_list
 				in
-					let sconstructor_list = List.map (convert_constructor_to_sfdecl class_maps reserved_functions class_map cdecl.cname) cdecl.cbody.constructors
-					in
-						let sconstructor_list = match sconstructor_list with
-														   [] -> (default_sc cdecl.cname) :: sconstructor_list
-														|  _  -> sconstructor_list
-						in
-						let func_list = List.fold_left (fun l f -> (convert_fdecl_to_sfdecl class_maps reserved_functions class_map cdecl.cname f):: l) [] cdecl.cbody.methods
-						in 
-							let sfunc_list = pick_main  func_list
-							in
-								let scdecl = convert_cdecl_to_sast sfunc_list cdecl
-								in (scdecl, func_list @sconstructor_list)
-					in 
-						let iter_cdecls t c = 
-						let scdecl =handle_cdecl c
-						in (fst scdecl::fst t, snd scdecl @ snd t)
-						in
-							let scdecl_list, func_list =List.fold_left  iter_cdecls ([],[]) cdecls
-							in
-								let main = check_main func_list 
-								in 
-									let funcs=  pick_main func_list
-									in
-										{ 
-											classes = scdecl_list;
-											functions = funcs;
-											main = main;
-											reserved = reserved_functions;
-										}
+					{ 
+						classes = scdecl_list;
+						functions = funcs;
+						main = main;
+						reserved = reserved_functions;
+					}
 											
 (***********************************************************)
 (* Entry point for translating Ast to Sast *)
@@ -726,10 +714,3 @@ let check program = match program with
 	let sast = convert_ast_to_sast class_maps reserved_functions cdecls in 
 
 	sast 
-
-
-
-
-	
-
-  
