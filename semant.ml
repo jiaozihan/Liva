@@ -65,12 +65,61 @@ let default_c =
 	body       = [];
 }
 
+
+let append_code_to_constructor fbody cname ret_type =
+	let key = Hashtbl.find struct_indexes cname in 
+	let init_this = [SLocal(
+		ret_type,
+		"this",
+		SCall(	"cast", 
+				[SCall("malloc", 
+					[	
+						SCall("sizeof", [SId("ignore", ret_type)], Datatype(Int_t))
+					], 
+					Arraytype(Char_t, 1))
+				],
+				ret_type
+			)
+		);
+		SExpr(
+			SAssign(
+				SObjAccess(
+					SId("this", ret_type),
+					SId(".key", Datatype(Int_t)),
+					Datatype(Int_t)
+				),
+				SInt_Lit(key),
+				Datatype(Int_t)
+			),
+			Datatype(Int_t)
+		)
+	]
+	in
+	let ret_this = 
+		[
+			SReturn(
+				SId("this", ret_type),
+				ret_type
+			)
+		]
+	in
+	(* Need to check for duplicate default constructs *)
+	(* Also need to add malloc around other constructors *)
+	init_this @ fbody @ ret_this
+
+
+
+let default_constructor_body cname = 
+	let ret_type = Datatype(Objecttype(cname)) in
+	let fbody = [] in
+	append_code_to_constructor fbody cname ret_type
+
 let default_sc cname = 
 {
 	sfname 		= Ast.FName (cname ^ "." ^ "constructor");
 	sreturnType = Datatype(Objecttype(cname));
 	sformals 	= [];
-	sbody 		= [];
+	sbody 		= default_constructor_body cname;
 	func_type	= Sast.User;
 	source 		= "NA";
 }
@@ -264,6 +313,7 @@ and check_object_constructor env s el =
 				in
 					let _ = try StringMap.find constructor_name cmap.constructor_map(*find constructor with type check*)
 							with  | Not_found -> raise (Failure ("Constructor is not found: " ^ constructor_name))
+					(*let _ = raise(Failure("" ^ constructor_name))*)
 					in
 						let obtyp = Datatype(Objecttype(s))
 						in
@@ -440,44 +490,53 @@ let get_constructor_name cname fdecl =
 				    \ class_decl
 *)
 let build_class_maps reserved_functions cdecls =
-	let reserved_functions_map = List.fold_left (fun mp sfun -> StringMap.add (string_of_fname sfun.sfname) sfun mp) StringMap.empty reserved_functions
+	let reserved_functions_map = 
+		List.fold_left (fun mp sfun -> StringMap.add (string_of_fname sfun.sfname) sfun mp) StringMap.empty reserved_functions
 	in
-		let assistant mp cdecl =
-			let fieldpart mp = function Field(d,n) ->
-				if (StringMap.mem n mp)
-					then raise (Failure ("DuplicateField: " ^ n))(*exception:DuplicateField *)
-				else (StringMap.add n (Field(d, n)) mp)
+	
+	let assistant mp cdecl =
+		let fieldpart mp = function Field(d,n) ->
+			if (StringMap.mem n mp)
+				then raise (Failure ("DuplicateField: " ^ n))(*exception:DuplicateField *)
+			else (StringMap.add n (Field(d, n)) mp)
+		in
+		
+		let constructorpart condecl = 
+			if List.length condecl > 1
+				then raise (Failure ("DuplicateConstructor"))(*exception:DuplicateConstructor*)
+			else if List.length condecl = 0 (*default constructor*)
+				then StringMap.add (get_constructor_name cdecl.cname default_c) default_c StringMap.empty
+			else StringMap.add (get_constructor_name cdecl.cname (List.hd condecl)) (List.hd condecl) StringMap.empty
+
+		in
+					
+		let funcpart mp fdecl = 
+			let funname = get_name cdecl.cname fdecl
 			in
-				let constructorpart condecl = 
-					if List.length condecl > 1
-						then raise (Failure ("DuplicateConstructor"))(*exception:DuplicateConstructor*)
-					else if List.length condecl = 0 (*default constructor*)
-						then StringMap.add (get_constructor_name cdecl.cname default_c) default_c StringMap.empty
-					else StringMap.add (get_constructor_name cdecl.cname (List.hd condecl)) (List.hd condecl) StringMap.empty
+
+			if (StringMap.mem funname mp)
+				then raise (Failure ("DuplicateFunction: " ^ funname))(*exception:DuplicateFunction*)
+			else 
+				let strfunname = string_of_fname fdecl.fname
 				in
-					let funcpart mp fdecl = 
-						let funname = get_name cdecl.cname fdecl
-						in
-							if (StringMap.mem funname mp)
-								then raise (Failure ("DuplicateFunction: " ^ funname))(*exception:DuplicateFunction*)
-							else let strfunname = string_of_fname fdecl.fname
-								 in
-									if (StringMap.mem strfunname reserved_functions_map)
-										then raise (Failure ("CannotUseReservedFuncName: " ^ strfunname))(*exception:CannotUseReservedFuncName*)
-									else (StringMap.add (get_name cdecl.cname fdecl) fdecl mp)
-					in
-						(if (StringMap.mem cdecl.cname mp)
-							then raise (Failure ("DuplicateClassName: " ^ cdecl.cname))(*exception:DuplicateClassName*)
-						else
-							StringMap.add cdecl.cname
-							{
-								field_map = List.fold_left fieldpart StringMap.empty cdecl.cbody.fields;
-								constructor_map = constructorpart cdecl.cbody.constructors;
-								func_map = List.fold_left funcpart StringMap.empty cdecl.cbody.methods;
-								reserved_functions_map = reserved_functions_map; 
-								cdecl = cdecl
-							} mp)
-		in List.fold_left assistant StringMap.empty cdecls
+				
+				if (StringMap.mem strfunname reserved_functions_map)
+					then raise (Failure ("CannotUseReservedFuncName: " ^ strfunname))(*exception:CannotUseReservedFuncName*)
+				else (StringMap.add (get_name cdecl.cname fdecl) fdecl mp)
+		in
+
+		(if (StringMap.mem cdecl.cname mp)
+			then raise (Failure ("DuplicateClassName: " ^ cdecl.cname))(*exception:DuplicateClassName*)
+		else
+			StringMap.add cdecl.cname
+			{
+				field_map = List.fold_left fieldpart StringMap.empty cdecl.cbody.fields;
+				constructor_map = constructorpart cdecl.cbody.constructors;
+				func_map = List.fold_left funcpart StringMap.empty cdecl.cbody.methods;
+				reserved_functions_map = reserved_functions_map; 
+				cdecl = cdecl
+			} mp)
+	in List.fold_left assistant StringMap.empty cdecls
 
 
 (* to-do handle_inheritance *)
