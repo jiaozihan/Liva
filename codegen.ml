@@ -151,6 +151,72 @@ and codegen_stmt llbuilder = function
 	| SLocal(d, s, e)  -> codegen_alloca d s e llbuilder
 
 	|  SIf (e, s1, s2)  -> codegen_if_stmt e s1 s2 llbuilder
+		
+	| SWhile(se, s)   -> codegen_while_stmt se s llbuilder
+	| SFor (se1, se2, se3, s) -> codegen_for_stmt se1 se2 se3 s llbuilder
+
+
+
+and codegen_for_stmt start cond step body llbuilder = 
+	(*let old_val = !is_loop in
+	is_loop := true;*)
+	let  preheader_bb = insertion_block llbuilder in
+	let  the_function = block_parent preheader_bb  in
+	let  start_val= codegen_sexpr llbuilder start in
+
+
+	let loop_bb = append_block context "loop" the_function in
+	
+	let step_bb = append_block context "step" the_function in
+	
+	let cond_bb = append_block context "cond" the_function in
+	
+	let after_bb = append_block context "afterloop" the_function in
+
+	(*let _ = if not old_val then
+		cont_block := inc_bb;
+		br_block := after_bb;
+	in*)
+
+	
+	ignore (build_br cond_bb llbuilder);
+	position_at_end loop_bb llbuilder;
+
+	(* Emit the body of the loop.*) 
+ 
+	ignore (codegen_stmt llbuilder body);
+
+	let bb = insertion_block llbuilder in
+	move_block_after bb step_bb;
+	move_block_after step_bb cond_bb;
+	move_block_after cond_bb after_bb;
+	ignore(build_br step_bb llbuilder);
+
+	
+	position_at_end step_bb llbuilder;
+		
+	let _ = codegen_sexpr  llbuilder step  in
+	ignore(build_br cond_bb llbuilder);
+
+	position_at_end cond_bb llbuilder;
+
+	let cond_val = codegen_sexpr llbuilder cond in
+	ignore (build_cond_br cond_val loop_bb after_bb llbuilder);
+
+	
+	position_at_end after_bb llbuilder;
+
+	(*is_loop := old_val;*)
+
+	(* for expr always returns 0.0. *)
+	const_null f_t
+
+
+
+
+and codegen_while_stmt pred body_stmt llbuilder = 
+	let null_sexpr = SInt_Lit(0) in
+	codegen_for_stmt null_sexpr pred null_sexpr body_stmt llbuilder
 
 
 and codegen_print expr_list llbuilder = 
