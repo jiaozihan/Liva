@@ -628,7 +628,7 @@ and check_return e env =
 			else raise (Failure ("Return Type Mismatch"))
 
 
-and check_if e s1 s2 env = 
+and check_if_stmt e s1 s2 env = 
 	let se, _ = expr_to_sexpr env e in
 
 	let t = get_type_from_sexpr se in
@@ -640,6 +640,27 @@ and check_if e s1 s2 env =
 		then SIf(se, ifbody, elsebody), env
 		else raise (Failure("invalid if type"))
 
+and check_for_stmt e1 e2 e3 s env = 
+
+	let se1, _ = expr_to_sexpr env e1 in
+	let se2, _ = expr_to_sexpr env e2 in
+	let se3, _ = expr_to_sexpr env e3 in
+	let forbody, _ = check_stmt env s in
+	let conditional = get_type_from_sexpr se2 in 
+		if (conditional = Datatype(Bool_t) || conditional = Datatype(Void_t))
+			then SFor(se1, se2, se3, forbody), env
+			else raise ( Failure("Invalid for Statement Type"))
+
+
+and check_while_stmt e s env =
+	let se, _ = expr_to_sexpr env e in
+	let t = get_type_from_sexpr se in
+let sstmt, _ = check_stmt env s in
+if (t = Datatype(Bool_t) || t = Datatype(Void_t)) 
+			then SWhile(se, sstmt), env
+			else raise ( Failure("Invalid while Statement Type"))
+
+
 
 (* convert the constructor in ast to the function in Sast *)
 and  check_stmt env = function
@@ -647,7 +668,9 @@ and  check_stmt env = function
 	| 	Expr e 			-> check_expr_stmt e env
 	| 	Return e 		-> check_return e env
 	|   Local(d, s, e) 	-> check_local d s e env
-	| 	If(e, s1, s2) 		-> check_if e s1 s2	env
+	| 	If(e, s1, s2) 		-> check_if_stmt e s1 s2	env
+	|   While( e, s) 	-> check_while_stmt e s env
+	| 	For(e1, e2, e3, e4) 	-> check_for_stmt e1 e2 e3 e4 env
 
 and  convert_stmt_list_to_sstmt_list env stmt_list =
 	let env_ref = ref(env)

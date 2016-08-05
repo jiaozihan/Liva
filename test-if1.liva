@@ -2,7 +2,9 @@ class test {
 
   void main(){
 
+
     
+
 
     		  print (100);
 
@@ -10,10 +12,8 @@ class test {
 		  else print(8);
   		  print(17);
 
-int a;
-a=1000000;
 
-print (a);
+
 
 	
 
