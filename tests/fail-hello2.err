@@ -1,1 +1,1 @@
-Fatal error: exception Failure("AssignmentTypeMismatch: int <-> float")
+Fatal error: exception Failure("Assignment types are mismatched: int <-> float")
