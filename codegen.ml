@@ -38,13 +38,13 @@ let struct_field_indexes:(string, int) Hashtbl.t = Hashtbl.create 50
 let str_type = Arraytype(Char_t, 1)(*to do*)
 
 
-let i32_t = i32_type context;;
-let i8_t = i8_type context;;
-let f_t = double_type context;;
-let i1_t = i1_type context;;
-let str_t = pointer_type i8_t;;
-let i64_t = i64_type context;;
-let void_t = void_type context;;
+let i32_t = L.i32_type context;;
+let i8_t = L.i8_type context;;
+let f_t = L.double_type context;;
+let i1_t = L.i1_type context;;
+let str_t = L.pointer_type i8_t;;
+let i64_t = L.i64_type context;;
+let void_t = L.void_type context;;
 
 let find_struct name = 
 	try Hashtbl.find struct_types name
@@ -58,7 +58,7 @@ let rec get_ptr_type datatype = match datatype with
 	| 	_ -> raise(Failure ("Invalid Array Pointer Type"))
 
 
-and get_type   datatype = match datatype with 
+and get_type datatype = match datatype with 
 		Datatype(Int_t) -> i32_t
 	| 	Datatype(Float_t) -> f_t
 	| 	Datatype(Bool_t) -> i1_t
@@ -69,16 +69,9 @@ and get_type   datatype = match datatype with
 	| 	Arraytype(t, i) -> get_ptr_type (Arraytype(t, (i)))
 	| 	d -> raise(Failure ("Invalid DataType")) 
 
-(* Declare printf(), which the print built-in function will call *)
-(*
-let printf_t = L.var_arg_function_type i32_t [| |] 
-let printf_func = L.declare_function "printf" printf_t the_module 
-*)
 
-
-(* Declare and Define classes*)
 let codegen_struct_stub s =
-	let struct_t = named_struct_type context s.scname in
+	let struct_t = L.named_struct_type context s.scname in
 	Hashtbl.add struct_types s.scname struct_t
 
 
@@ -96,19 +89,12 @@ let codegen_struct s =
         let n = s.scname ^ "." ^ f in
         Hashtbl.add struct_field_indexes n i;
     ) name_list;
-	struct_set_body struct_t type_array true
-
-
-
-
-
-
+	L.struct_set_body struct_t type_array true
 
 
 let string_of_formal_name = function
 		Formal(_, s) -> s
 	| 	_ -> " "
-
 
 let string_of_fname = function 
 		Constructor -> "constructor"
@@ -125,20 +111,42 @@ let init_parameters f formals =
     ) (params f)
 
 
-	
-
 and func_lookup fname = 
 	match (L.lookup_function fname the_module) with
-		None -> raise (Failure("LLVM Function NotFound"))
+		None -> raise (Failure("Function NotFound in module " ^ fname))
 	|  	Some f -> f
 
 
 (* expression code generation*)
+let rec codegen_sexpr llbuilder = function
 
-let rec codegen_print expr_list llbuilder = 
+		SInt_Lit(i) -> L.const_int i32_t i
+		| 	SBoolean_Lit(b) -> let temp = L.build_global_stringptr (string_of_boolean b) "str" llbuilder in temp
+		|   SFloat_Lit(f)   -> L.const_float f_t  f
+		|   SChar_Lit(c)    -> const_int i8_t (Char.code c)
+		| 	SString_Lit s   -> codegen_string_lit s llbuilder
+
+		|   SId(id, d)      -> codegen_id true false id d llbuilder
+		|   SBinop(e1, op, e2, d)     -> binop_gen e1 op e2 d llbuilder
+	    
+		|   SAssign(e1, e2, d)        	-> assign_gen e1 e2 d llbuilder
+	    |   SCall(fname, expr_list, d)  -> codegen_call llbuilder d expr_list fname
+
+	    |   SObjectCreate(id, el, d)  	-> create_obj_gen id el d llbuilder
+
+
+and codegen_stmt llbuilder = function 
+
+	  SBlock sl        ->  List.hd (List.map (codegen_stmt llbuilder) sl)
+	| SExpr (se, _)	   -> codegen_sexpr llbuilder se
+	| SReturn(e, d)    -> codegen_ret d e llbuilder
+	| SLocal(d, s, e)  -> codegen_alloca d s e llbuilder
+
+
+and codegen_print expr_list llbuilder = 
 	let printf = func_lookup "printf" in
 
-	let map_expr_to_printfexpr expr =  codegen_sexpr expr llbuilder
+	let map_expr_to_printfexpr expr =  codegen_sexpr llbuilder expr
 	in
 
 	let params = List.map map_expr_to_printfexpr expr_list in
@@ -154,7 +162,7 @@ let rec codegen_print expr_list llbuilder =
 	in
 	let const_str = List.fold_left (fun s t -> s ^ map_param_to_string t) "" param_types in
 
-	let s = codegen_sexpr (SString_Lit(const_str)) llbuilder in
+	let s = codegen_sexpr llbuilder (SString_Lit(const_str)) in
 	let zero = const_int i32_t 0 in 
 	let s = L.build_in_bounds_gep s [| zero |] "tmp" llbuilder in
 	build_call printf (Array.of_list (s :: params)) "tmp" llbuilder
@@ -165,8 +173,8 @@ and binop_gen e1 op e2 d llbuilder =
 
 	(* Generate llvalues from e1 and e2 *)
 
-	let e1 = codegen_sexpr e1 llbuilder in
-	let e2 = codegen_sexpr e2 llbuilder in
+	let e1 = codegen_sexpr llbuilder e1 in
+	let e2 = codegen_sexpr llbuilder e2 in
 	
 	let float_ops op e1 e2 =
 		match op with
@@ -202,7 +210,6 @@ and binop_gen e1 op e2 d llbuilder =
 		| 	_ 			-> raise(Failure("Invalid operator for integers"))
 	in	
 
-	(*let (e1, e2), d = cast e1 e2 type1 type2 llbuilder in*)
 
 	let type_handler d = match d with
 			Datatype(Float_t)   -> float_ops op e1 e2
@@ -214,18 +221,49 @@ and binop_gen e1 op e2 d llbuilder =
 
 	type_handler d
 
-
- (*L.build_call printf_func [| print_format e ; (codegen_sexpr e llbuilder) |]
-	    "printf" llbuilder*)
 and codegen_sizeof el llbuilder =
-	let type_of = Semant.get_type_from_sexpr (List.hd el) in
-	let type_of = get_type type_of in
-	let size_of = size_of type_of in
-	build_bitcast size_of i32_t "tmp" llbuilder
+	let type_of_sexpr = Semant.get_type_from_sexpr (List.hd el) in
+	let type_of_sexpr = get_type type_of_sexpr in
+	let size_of_typ = (L.size_of type_of_sexpr) in	
+	L.build_intcast size_of_typ i32_t "tmp" llbuilder
+
+	(*raise(Failure("codegen size of cas Failure"));
+	build_bitcast size_of_typ i32_t "tmp" llbuilder*)
+	
 
 and codegen_call llbuilder d expr_list = function
 		"print" 	-> codegen_print expr_list llbuilder
 	| 	"sizeof"	-> codegen_sizeof expr_list llbuilder
+	| 	"cast" 		-> codegen_cast expr_list d llbuilder
+	| 	"malloc" 	-> codegen_func_call "malloc" expr_list d llbuilder
+	|   _ as call_name -> raise(Failure("function call not found: "^ call_name))
+
+
+and codegen_cast el d llbuilder =
+	let cast_malloc_to_objtype lhs currType newType llbuilder = match newType with
+		Datatype(Objecttype(x)) -> 
+			let obj_type = get_type (Datatype(Objecttype(x))) in 
+			L.build_pointercast lhs obj_type "tmp" llbuilder
+		| 	_ as t -> raise (Failure("cannot cast"))
+	in
+	let expr = List.hd el in
+	let t = Semant.get_type_from_sexpr expr in
+	let lhs = match expr with
+	| 	Sast.SId(id, d) -> codegen_id false false id d llbuilder
+	(*|  	SObjAccess(e1, e2, d) -> codegen_obj_access false e1 e2 d llbuilder
+	| 	SArrayAccess(se, sel, d) -> codegen_array_access true se sel d llbuilder*)(*to do*)
+	| _ -> codegen_sexpr llbuilder expr
+	in
+	cast_malloc_to_objtype lhs t d llbuilder
+
+and codegen_func_call fname el d llbuilder = 
+	let f = func_lookup fname in
+	let params = List.map (codegen_sexpr llbuilder) el in
+	match d with
+		Datatype(Void_t) -> build_call f (Array.of_list params) "" llbuilder
+	| 	_ -> 				build_call f (Array.of_list params) "tmp" llbuilder
+
+
 
 and codegen_id isDeref checkParam id d llbuilder = 
 	if isDeref then
@@ -233,7 +271,7 @@ and codegen_id isDeref checkParam id d llbuilder =
 		with | Not_found ->
 		try let _val = Hashtbl.find named_values id in
 			build_load _val id llbuilder
-		with | Not_found -> raise (Failure("unknown variable id"))
+		with | Not_found -> raise (Failure("unknown variable id " ^ id))
 	else		
 		try Hashtbl.find named_values id
 		with | Not_found ->
@@ -246,11 +284,12 @@ and assign_gen lhs rhs d llbuilder =
 	let rhs_t = Semant.get_type_from_sexpr rhs in
 	let lhs, isObjAccess = match lhs with
 		| Sast.SId(id, d) -> codegen_id false false id d llbuilder, false
+		| SObjAccess(e1, e2, d) -> codegen_obj_access false e1 e2 d llbuilder, true
 		| _ -> raise (Failure("Left hand side must be assignable"))
 	in
 	let rhs = match rhs with 
 		| 	Sast.SId(id, d) -> codegen_id true false id d llbuilder
-		| _ -> codegen_sexpr rhs llbuilder
+		| _ -> codegen_sexpr llbuilder rhs
 	in
 	let rhs = match d with 
 		Datatype(Objecttype(_))	-> 
@@ -264,29 +303,90 @@ and assign_gen lhs rhs d llbuilder =
 		| 	Datatype(Int_t), Datatype(Char_t) -> L.build_uitofp rhs i32_t "tmp" llbuilder
 		| 	_ -> rhs
 	in 
-	(* Lookup the name. *)
 	ignore(L.build_store rhs lhs llbuilder);
 	rhs
+
+
+(*to do*)
+and codegen_obj_access isAssign lhs rhs d llbuilder = 
+	let codegen_func_call param_ty fptr parent_expr el d llbuilder = 
+		let match_sexpr se = match se with
+			SId(id, d) -> let isDeref = match d with
+				Datatype(Objecttype(_)) -> false
+			| 	_ -> true 
+			in codegen_id isDeref false id d llbuilder
+		| 	se -> codegen_sexpr llbuilder se
+		in
+		let parent_expr = build_pointercast parent_expr param_ty "tmp" llbuilder in
+		let params = List.map match_sexpr el in
+		match d with
+			Datatype(Void_t) -> build_call fptr (Array.of_list (parent_expr :: params)) "" llbuilder
+		| 	_ -> build_call fptr (Array.of_list (parent_expr :: params)) "tmp" llbuilder
+	in
+	let check_lhs = function
+		SId(s, d)				-> codegen_id false false s d llbuilder
+	(*| 	SArrayAccess(e, el, d)	-> codegen_array_access false e el d llbuilder*)
+	| 	se 	-> raise (Failure("check lhd error"))
+	in
+	(* Needs to be changed *)
+	let rec check_rhs isLHS parent_expr parent_type = 
+		let parent_str = Ast.string_of_object parent_type in
+		function
+			(* Check fields in parent *)
+			SId(field, d) -> 
+				let search_term = (parent_str ^ "." ^ field) in
+				let field_index = Hashtbl.find struct_field_indexes search_term in
+				let _val = build_struct_gep parent_expr field_index field llbuilder in
+				let _val = match d with 
+					Datatype(Objecttype(_)) -> 
+					if not isAssign then _val
+					else build_load _val field llbuilder
+				| _ ->
+				if not isAssign then
+					_val
+				else
+					build_load _val field llbuilder
+				in
+				_val
+
+		(*to do array access*)
+		(*to do call*)
+
+			(* Set parent, check if base is field *)
+		| 	SObjAccess(e1, e2, d) 	-> 
+				let e1_type = Semant.get_type_from_sexpr e1 in
+				let e1 = check_rhs true parent_expr parent_type e1 in
+				let e2 = check_rhs true e1 e1_type e2 in
+				e2
+		| 	_ as e -> raise (Failure("invalid access"))
+	in 
+	let lhs_type = Semant.get_type_from_sexpr lhs in 
+	match lhs_type with
+		Arraytype(_, _) -> 
+			let lhs = codegen_sexpr llbuilder lhs in
+			let _ = match rhs with
+				SId("length", _) -> "length"
+			| 	_ -> raise(Failure("cannot only acces length of array"))
+			in
+			let _val = build_gep lhs [| (const_int i32_t 0) |] "tmp" llbuilder in
+			build_load _val "tmp" llbuilder 
+	| 	_ -> 
+		let lhs = check_lhs lhs in
+		let rhs = check_rhs true lhs lhs_type rhs in
+		rhs
+
+
+
+
+
+
 
 and codegen_string_lit s llbuilder = 
 	if s = "true" then build_global_stringptr "true" "tmp" llbuilder
 	else if s = "false" then build_global_stringptr "false" "tmp" llbuilder
 	else build_global_stringptr s "tmp" llbuilder
 
-and codegen_sexpr sexpr llbuilder = 
 
-	match sexpr with 
-		SInt_Lit(i) -> L.const_int i32_t i
-		| 	SBoolean_Lit(b) -> let temp = L.build_global_stringptr (string_of_boolean b) "str" llbuilder in temp
-		|   SFloat_Lit(f)   -> L.const_float f_t  f
-		|   SChar_Lit(c)    -> const_int i8_t (Char.code c)
-		| 	SString_Lit s   -> codegen_string_lit s llbuilder
-
-		|   SId(id, d)      -> codegen_id true false id d llbuilder
-		|   SBinop(e1, op, e2, d)     	-> binop_gen e1 op e2 d llbuilder
-	    
-		|   SAssign(e1, e2, d)        	-> assign_gen e1 e2 d llbuilder
-	    |   SCall(fname, expr_list, d)  -> codegen_call llbuilder d expr_list fname
   
 and codegen_alloca datatype var_name expr llbuilder = 
 	let t = match datatype with 
@@ -303,17 +403,22 @@ and codegen_alloca datatype var_name expr llbuilder =
 
 and codegen_ret d expr llbuilder =  
 	match expr with
+		SId(name, d) ->
+			(match d with 
+			| Datatype(Objecttype(_)) -> build_ret (codegen_id false false name d llbuilder) llbuilder
+			| _ -> build_ret (codegen_id true true name d llbuilder) llbuilder)
+		| SObjAccess(e1, e2, d) -> build_ret (codegen_obj_access true e1 e2 d llbuilder) llbuilder
 		| SNoexpr -> build_ret_void llbuilder
-		| _ -> L.build_ret (codegen_sexpr expr llbuilder) llbuilder
+		| _ -> build_ret (codegen_sexpr llbuilder expr) llbuilder
 
-(*statement code generation*)
-and codegen_stmt llbuilder = function 
-
-	  SBlock sl        -> List.hd (List.map (codegen_stmt llbuilder) sl)
-	| SExpr (se, _)	   -> codegen_sexpr se llbuilder
-	| SReturn(e, d)    -> codegen_ret d e llbuilder
-	| SLocal(d, s, e)  -> codegen_alloca d s e llbuilder
 	
+
+and create_obj_gen fname el d llbuilder = 
+	let f = func_lookup fname in
+	let params = List.map (codegen_sexpr llbuilder) el in
+	let obj = build_call f (Array.of_list params) "tmp" llbuilder in
+	obj
+
 (*function code generation*)
 let codegen_func_stub sfdecl=
 
@@ -323,10 +428,8 @@ let codegen_func_stub sfdecl=
 	(fun l -> (function 
 		Formal (t,_)-> get_type t::l 
 	      | _ -> is_var_arg = ref true; l))[]  sfdecl.sformals)
-
 		
 	in 
-	
 
 	let fty = if !is_var_arg 
 		then L.var_arg_function_type (get_type sfdecl.sreturnType )
@@ -353,6 +456,9 @@ let codegen_func sfdecl =
 let codegen_library_functions () = 
 	let printf_t = var_arg_function_type i32_t [| pointer_type i8_t |] in
 	let _ = declare_function "printf" printf_t the_module in
+
+	let malloc_ty = function_type (str_t) [| i32_t |] in
+	let _ = declare_function "malloc" malloc_ty the_module in
 	()
 
 (*main funtion generation*)
@@ -364,14 +470,6 @@ let codegen_main main =
         let fty = L.function_type i32_t[||] in 
 	let f = L.define_function "main" fty the_module in 	
 	let llbuilder = L.builder_at_end context (L.entry_block f) in
-
-	(*let argc = L.param f 0 in 
-	let argv =L.param f 1 in 
-	L.set_value_name "argc" argc;
-	L.set_value_name "argv" argv;
-	
-	Hashtbl.add named_params "argc"  argc;
-	Hashtbl.add named_params "argv"  argv;*)
 	
 	let _ = codegen_stmt llbuilder (SBlock (main.sbody)) in 
 	
@@ -379,11 +477,6 @@ let codegen_main main =
 	L.build_ret (L.const_int i32_t 0) llbuilder
 
 
-(***********************************************************)
-(* Entry point for translating Ast.program to LLVM module *)
-(***********************************************************)
-
-(* Return the module*)
 let translate sast = 
 
 	let classes = sast.classes in
@@ -393,10 +486,9 @@ let translate sast =
 	let _ = codegen_library_functions () in
 	let _ = List.map (fun s -> codegen_struct_stub s) classes in
 	let _ = List.map (fun s -> codegen_struct s) classes in
-	let _ = codegen_main main in
 	let _ = List.map (fun s-> codegen_func_stub s) functions in 
 	let _ = List.map (fun s-> codegen_func s) functions in
-	
+	let _ = codegen_main main in
 
 	the_module;
 	

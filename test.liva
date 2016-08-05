@@ -6,20 +6,15 @@ class calculator{
         z = x + y;
         return(z);
     }
+
 }
 
 
 
 
-
-
 class test {
-    int add(){
-        int a;
-        a =1;
 
-        return(a);
-    }
+    
     void main(){
 
 
@@ -30,8 +25,9 @@ class test {
         b = 40;
         c = 40/10;
 
-        class calculator = new calculator();
+        class calculator obj = new calculator();
+        /*obj.addition(1,2);*/
 
-        print (c,"\n");
+        print (c," constructor ok!\n");
     } 
 }
