@@ -96,7 +96,8 @@ let string_of_expr e = "remain to be completed"
 let string_of_datatype = function (*datatype*)
 		Arraytype(p, i)	-> (string_of_primitive p) ^ (print_brackets i)
 	| 	Datatype(p)		-> (string_of_primitive p)
-
+	|  	Any 			-> "Any"
+	
 let string_of_op = function(*operator*)
 		Add			-> "+"	
 	 | 	Sub			-> "-"	

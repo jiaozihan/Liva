@@ -113,7 +113,7 @@ let init_parameters f formals =
 
 and func_lookup fname = 
 	match (L.lookup_function fname the_module) with
-		None -> raise (Failure("Function NotFound in module " ^ fname))
+		None -> raise (Failure("Function NotFound in module: " ^ fname))
 	|  	Some f -> f
 
 
@@ -121,7 +121,11 @@ and func_lookup fname =
 let rec codegen_sexpr llbuilder = function
 
 		SInt_Lit(i) -> L.const_int i32_t i
-		| 	SBoolean_Lit(b) -> let temp = L.build_global_stringptr (string_of_boolean b) "str" llbuilder in temp
+		| 	SBoolean_Lit(b) -> if b then const_int i1_t 1 else const_int i1_t 0
+
+
+		(*let temp = L.build_global_stringptr (string_of_boolean b) "str" llbuilder in temp*)
+		
 		|   SFloat_Lit(f)   -> L.const_float f_t  f
 		|   SChar_Lit(c)    -> const_int i8_t (Char.code c)
 		| 	SString_Lit s   -> codegen_string_lit s llbuilder
@@ -130,10 +134,14 @@ let rec codegen_sexpr llbuilder = function
 		|   SBinop(e1, op, e2, d)     -> binop_gen e1 op e2 d llbuilder
 	    
 		|   SAssign(e1, e2, d)        	-> assign_gen e1 e2 d llbuilder
-	    |   SCall(fname, expr_list, d)  -> codegen_call llbuilder d expr_list fname
+	    |   SCall(fname, expr_list, d, _)  -> codegen_call llbuilder d expr_list fname
 
 	    |   SObjectCreate(id, el, d)  	-> create_obj_gen id el d llbuilder
+		|   SObjAccess(e1, e2, d)     	-> codegen_obj_access true e1 e2 d llbuilder
 
+		|   SNoexpr        -> build_add (const_int i32_t 0) (const_int i32_t 0) "nop" llbuilder
+
+		| 	_  as  e -> raise(Failure("expression not match :"^ (Sast.string_of_sexpr e)))
 
 and codegen_stmt llbuilder = function 
 
@@ -141,6 +149,8 @@ and codegen_stmt llbuilder = function
 	| SExpr (se, _)	   -> codegen_sexpr llbuilder se
 	| SReturn(e, d)    -> codegen_ret d e llbuilder
 	| SLocal(d, s, e)  -> codegen_alloca d s e llbuilder
+
+	|  SIf (e, s1, s2)  -> codegen_if_stmt e s1 s2 llbuilder
 
 
 and codegen_print expr_list llbuilder = 
@@ -307,6 +317,63 @@ and assign_gen lhs rhs d llbuilder =
 	rhs
 
 
+
+and codegen_if_stmt exp then_stmt else_stmt llbuilder =
+	
+
+	
+	let condition= codegen_sexpr llbuilder exp in
+	
+	
+	let start_block = L.insertion_block llbuilder in
+	let parent_function = L.block_parent start_block in
+
+
+	let then_block = L.append_block context "then" parent_function in
+
+	L.position_at_end then_block llbuilder;
+	let then_val = codegen_stmt llbuilder then_stmt in
+
+	
+	let new_then_block = L.insertion_block llbuilder in
+
+	let else_block = L.append_block context "else" parent_function in
+	L.position_at_end else_block llbuilder;
+
+	let else_val= codegen_stmt llbuilder else_stmt in
+
+
+	let new_else_block = L.insertion_block llbuilder in
+
+	
+	let merge_block = L.append_block context "ifcont" parent_function in
+	L.position_at_end merge_block builder;
+	
+	let incoming = [(then_val, new_then_block); (else_val, new_else_block)] in
+	let phi = L.build_phi incoming "iftmp" builder in
+	
+
+	
+	L.position_at_end start_block llbuilder;
+	ignore (build_cond_br condition then_block else_block llbuilder);
+
+
+	position_at_end new_then_block llbuilder; ignore (build_br merge_block llbuilder);
+	position_at_end new_else_block llbuilder; ignore (build_br merge_block llbuilder);
+
+	(* Finally, set the builder to the end of the merge block. *)
+	L.position_at_end merge_block llbuilder;
+
+	phi
+
+
+
+
+
+
+
+
+
 (*to do*)
 and codegen_obj_access isAssign lhs rhs d llbuilder = 
 	let codegen_func_call param_ty fptr parent_expr el d llbuilder = 
@@ -351,6 +418,26 @@ and codegen_obj_access isAssign lhs rhs d llbuilder =
 
 		(*to do array access*)
 		(*to do call*)
+		| 	SCall(fname, el, d, index) 	-> 
+				let index = const_int i32_t index in
+				let c_index = build_struct_gep parent_expr 0 "cindex" llbuilder in
+				let c_index = build_load c_index "cindex" llbuilder in
+				let lookup = func_lookup "lookup" in
+				let fptr = build_call lookup [| c_index; index |] "fptr" llbuilder in
+				let fptr2 = func_lookup fname in
+				let f_ty = type_of fptr2 in
+				let param1 = param fptr2 0 in
+				let param_ty = type_of param1 in
+				let fptr = build_pointercast fptr f_ty fname llbuilder in
+				let ret = codegen_func_call param_ty fptr parent_expr el d llbuilder in
+				let ret = ret
+					(* if not isLHS && not isAssign then
+						build_load ret "tmp" llbuilder
+					else
+						ret *)
+				in
+				ret
+			(* Set parent, check if base is field *)		
 
 			(* Set parent, check if base is field *)
 		| 	SObjAccess(e1, e2, d) 	-> 
@@ -453,12 +540,78 @@ let codegen_func sfdecl =
 	 then ignore (L.build_ret_void llbuilder);
 	()
 
+
+
+
+let codegen_vtbl scdecls = 
+	let rt = pointer_type i64_t in
+	let void_pt = pointer_type i64_t in
+	let void_ppt = pointer_type void_pt in
+
+	let f = func_lookup "lookup" in
+	let llbuilder = builder_at_end context (entry_block f) in
+
+	let len = List.length scdecls in
+	let total_len = ref 0 in
+	let scdecl_llvm_arr = build_array_alloca void_ppt (const_int i32_t len) "tmp" llbuilder in
+
+	let handle_scdecl scdecl = 
+		let index = Hashtbl.find Semant.struct_indexes scdecl.scname in
+		let len = List.length scdecl.sfuncs in
+		let sfdecl_llvm_arr = build_array_alloca void_pt (const_int i32_t len) "tmp" llbuilder in
+
+		let handle_fdecl i sfdecl = 
+			let fptr = func_lookup (Ast.string_of_fname sfdecl.sfname) in
+			let fptr = build_pointercast fptr void_pt "tmp" llbuilder in
+
+			let ep = build_gep sfdecl_llvm_arr [| (const_int i32_t i) |] "tmp" llbuilder in
+			ignore(build_store fptr ep llbuilder);
+		in 
+		List.iteri handle_fdecl scdecl.sfuncs;
+		total_len := !total_len + len;
+
+		let ep = build_gep scdecl_llvm_arr [| (const_int i32_t index) |] "tmp" llbuilder in
+		ignore(build_store sfdecl_llvm_arr ep llbuilder);
+	in
+	List.iter handle_scdecl scdecls;
+
+	let c_index = param f 0 in
+	let f_index = param f 1 in
+	set_value_name "c_index" c_index;
+	set_value_name "f_index" f_index;
+
+	if !total_len == 0 then
+		build_ret (const_null rt) llbuilder
+	else
+		let vtbl = build_gep scdecl_llvm_arr [| c_index |] "tmp" llbuilder in
+		let vtbl = build_load vtbl "tmp" llbuilder in
+		let fptr = build_gep vtbl [| f_index |] "tmp" llbuilder in
+		let fptr = build_load fptr "tmp" llbuilder in
+
+		build_ret fptr llbuilder 
+
+
+
+
+
+
+
+
+
+
+
+
 let codegen_library_functions () = 
 	let printf_t = var_arg_function_type i32_t [| pointer_type i8_t |] in
 	let _ = declare_function "printf" printf_t the_module in
 
 	let malloc_ty = function_type (str_t) [| i32_t |] in
 	let _ = declare_function "malloc" malloc_ty the_module in
+
+
+	(*special*)
+	let fty = function_type (pointer_type i64_t) [| i32_t; i32_t |] in
+	let _ = define_function "lookup" fty the_module in
 	()
 
 (*main funtion generation*)
@@ -489,7 +642,7 @@ let translate sast =
 	let _ = List.map (fun s-> codegen_func_stub s) functions in 
 	let _ = List.map (fun s-> codegen_func s) functions in
 	let _ = codegen_main main in
-
+	let _ = codegen_vtbl classes in
 	the_module;
 	
 
