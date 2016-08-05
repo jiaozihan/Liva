@@ -13,7 +13,7 @@ type sexpr =
 	| 	SArrayCreate of datatype * sexpr list * datatype
 	| 	SArrayAccess of sexpr * sexpr list * datatype
 	| 	SObjAccess of sexpr * sexpr * datatype
-	| 	SCall of string * sexpr list * datatype
+	| 	SCall of string * sexpr list * datatype * int
 	|   SObjectCreate of string * sexpr list * datatype
 	| 	SArrayPrimitive of sexpr list * datatype
 	|  	SUnop of op * sexpr * datatype
@@ -55,3 +55,39 @@ type sprogram =  {
 	main : sfunc_decl;
 	reserved : sfunc_decl list;
 }
+
+
+
+let rec string_of_sexpr = function 
+		SInt_Lit(i)					-> string_of_int i
+	|	SBoolean_Lit(b)				-> if b then "true" else "false"
+	|	SFloat_Lit(f)				-> string_of_float f
+	|	SString_Lit(s)				-> "\"" ^ (String.escaped s) ^ "\""
+	|	SChar_Lit(c)				-> Char.escaped c
+	|	SId(s, _)					-> s
+	|	SBinop(e1, o, e2, _)		-> (string_of_sexpr e1) ^ " " ^ (string_of_op o) ^ " " ^ (string_of_sexpr e2)
+	|	SAssign(e1, e2, _)			-> (string_of_sexpr e1) ^ " = " ^ (string_of_sexpr e2)
+	|	SNoexpr						-> "Noexpr"
+	|	SObjAccess(e1, e2, _)		-> (string_of_sexpr e1) ^ "." ^ (string_of_sexpr e2)
+	|	SCall(f, el, _, _)			-> f ^ "(" ^ String.concat ", " (List.map string_of_sexpr el) ^ ")"
+	(*to do*)
+	|  	SUnop(op, e, _)				-> (string_of_op op) ^ "(" ^ string_of_sexpr e ^ ")"
+	|	SNull						-> "null"
+	(*todo*)
+	(*to do*)
+	|   SObjectCreate(s, el, _) 	-> "new " ^ s ^ "(" ^ String.concat ", " (List.map string_of_sexpr el) ^ ")"
+	| 	SDelete(e) 					-> "delete (" ^ (string_of_sexpr e) ^ ")"
+
+
+
+
+
+
+
+
+
+
+
+
+
+

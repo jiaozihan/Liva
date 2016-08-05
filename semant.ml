@@ -627,12 +627,27 @@ and check_return e env =
 				then SReturn(se, t), env
 			else raise (Failure ("Return Type Mismatch"))
 
+
+and check_if e s1 s2 env = 
+	let se, _ = expr_to_sexpr env e in
+
+	let t = get_type_from_sexpr se in
+
+	let ifbody, _ = check_stmt env s1 in
+	let elsebody, _ = check_stmt env s2 in
+	
+	if t = Datatype(Bool_t) 
+		then SIf(se, ifbody, elsebody), env
+		else raise (Failure("invalid if type"))
+
+
 (* convert the constructor in ast to the function in Sast *)
 and  check_stmt env = function
 		Block sl 		-> check_sblock sl env
 	| 	Expr e 			-> check_expr_stmt e env
 	| 	Return e 		-> check_return e env
 	|   Local(d, s, e) 	-> check_local d s e env
+	| 	If(e, s1, s2) 		-> check_if e s1 s2	env
 
 and  convert_stmt_list_to_sstmt_list env stmt_list =
 	let env_ref = ref(env)

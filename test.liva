@@ -18,15 +18,21 @@ class test {
     void main(){
 
 
+
+        if (true) {print(1);}
         int a;
         int b;
         int c;
+
+
+
+        
         a = 10;
         b = 40;
         c = 40/10;
 
         class calculator obj = new calculator();
-        /*obj.addition(1,2);*/
+        c = obj.addition(34,2);
 
         print (c," constructor ok!\n");
     } 
