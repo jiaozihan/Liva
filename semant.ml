@@ -893,6 +893,8 @@ and  check_stmt env = function
 	| 	If(e, s1, s2) 		-> check_if_stmt e s1 s2	env
 	|   While( e, s) 	-> check_while_stmt e s env
 	| 	For(e1, e2, e3, e4) 	-> check_for_stmt e1 e2 e3 e4 env
+	|  	Break 				-> SBreak, env 
+	|       Continue 			-> SContinue, env 
 
 and  convert_stmt_list_to_sstmt_list env stmt_list =
 	let env_ref = ref(env)

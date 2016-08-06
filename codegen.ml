@@ -46,6 +46,12 @@ let str_t = L.pointer_type i8_t;;
 let i64_t = L.i64_type context;;
 let void_t = L.void_type context;;
 
+
+(*control flow references*)
+let br_block = ref (L.block_of_value (L.const_int i32_t 0))
+and cont_block = ref (L.block_of_value (L.const_int i32_t 0))
+and is_loop = ref false 
+
 let find_struct name = 
 	try Hashtbl.find struct_types name
 	with | Not_found -> raise(Failure ("undeclared struct"^ name))
@@ -143,6 +149,15 @@ let rec codegen_sexpr llbuilder = function
 
 		| 	_  as  e -> raise(Failure("expression not match :"^ (Sast.string_of_sexpr e)))
 
+
+and codegen_continue llbuilder =
+	let b= fun() -> !cont_block in
+	L.build_br (b()) llbuilder
+
+and codegen_break llbuilder =
+  	let b= fun() -> !br_block in
+	L.build_br (b ()) llbuilder
+
 and codegen_stmt llbuilder = function 
 
 	  SBlock sl        ->  List.hd (List.map (codegen_stmt llbuilder) sl)
@@ -158,8 +173,8 @@ and codegen_stmt llbuilder = function
 
 
 and codegen_for_stmt start cond step body llbuilder = 
-	(*let old_val = !is_loop in
-	is_loop := true;*)
+	let old_val = !is_loop in
+	is_loop := true;
 	let  preheader_bb = insertion_block llbuilder in
 	let  the_function = block_parent preheader_bb  in
 	let  start_val= codegen_sexpr llbuilder start in
@@ -173,10 +188,10 @@ and codegen_for_stmt start cond step body llbuilder =
 	
 	let after_bb = append_block context "afterloop" the_function in
 
-	(*let _ = if not old_val then
-		cont_block := inc_bb;
+	let _ = if not old_val then
+		cont_block := step_bb;
 		br_block := after_bb;
-	in*)
+	in
 
 	
 	ignore (build_br cond_bb llbuilder);
