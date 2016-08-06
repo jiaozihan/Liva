@@ -46,6 +46,12 @@ let str_t = L.pointer_type i8_t;;
 let i64_t = L.i64_type context;;
 let void_t = L.void_type context;;
 
+(*control flow references*)
+let br_block = ref (L.block_of_value (L.const_int i32_t 0))
+and cont_block = ref (L.block_of_value (L.const_int i32_t 0))
+and is_loop = ref false 
+
+
 let find_struct name = 
 	try Hashtbl.find struct_types name
 	with | Not_found -> raise(Failure ("undeclared struct"^ name))
@@ -143,6 +149,15 @@ let rec codegen_sexpr llbuilder = function
 
 		| 	_  as  e -> raise(Failure("expression not match :"^ (Sast.string_of_sexpr e)))
 
+
+and codegen_continue llbuilder =
+	let b= fun() -> !cont_block in
+	L.build_br (b()) llbuilder
+
+and codegen_break llbuilder =
+  	let b= fun() -> !br_block in
+	L.build_br (b ()) llbuilder
+
 and codegen_stmt llbuilder = function 
 
 	  SBlock sl        ->  List.hd (List.map (codegen_stmt llbuilder) sl)
@@ -150,10 +165,12 @@ and codegen_stmt llbuilder = function
 	| SReturn(e, d)    -> codegen_ret d e llbuilder
 	| SLocal(d, s, e)  -> codegen_alloca d s e llbuilder
 
-	|  SIf (e, s1, s2)  -> codegen_if_stmt e s1 s2 llbuilder
+	| SIf (e, s1, s2)  -> codegen_if_stmt e s1 s2 llbuilder
 		
 	| SWhile(se, s)   -> codegen_while_stmt se s llbuilder
 	| SFor (se1, se2, se3, s) -> codegen_for_stmt se1 se2 se3 s llbuilder
+	| SBreak 	   -> codegen_break llbuilder 
+	| SContinue    	   -> codegen_continue llbuilder
 
 
 

@@ -1,0 +1,41 @@
+/usr/bin/lli
+
+###### Testing test-for1
+./liva < tests/test-for1.liva > test-for1.ll
+lli test-for1.ll > test-for1.out
+diff -b test-for1.out tests/test-for1.out > test-for1.diff
+###### SUCCESS
+
+###### Testing test-hello2
+./liva < tests/test-hello2.liva > test-hello2.ll
+lli test-hello2.ll > test-hello2.out
+diff -b test-hello2.out tests/test-hello2.out > test-hello2.diff
+###### SUCCESS
+
+###### Testing test-hello
+./liva < tests/test-hello.liva > test-hello.ll
+lli test-hello.ll > test-hello.out
+diff -b test-hello.out tests/test-hello.out > test-hello.diff
+###### SUCCESS
+
+###### Testing test-if1
+./liva < tests/test-if1.liva > test-if1.ll
+lli test-if1.ll > test-if1.out
+diff -b test-if1.out tests/test-if1.out > test-if1.diff
+###### SUCCESS
+
+###### Testing test-while1
+./liva < tests/test-while1.liva > test-while1.ll
+lli test-while1.ll > test-while1.out
+diff -b test-while1.out tests/test-while1.out > test-while1.diff
+###### SUCCESS
+
+###### Testing fail-hello2
+./liva < tests/fail-hello2.liva 2> fail-hello2.err >> testall.log
+diff -b fail-hello2.err tests/fail-hello2.err > fail-hello2.diff
+###### SUCCESS
+
+###### Testing fail-hello
+./liva < tests/fail-hello.liva 2> fail-hello.err >> testall.log
+diff -b fail-hello.err tests/fail-hello.err > fail-hello.diff
+###### SUCCESS
