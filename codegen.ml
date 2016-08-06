@@ -146,7 +146,7 @@ let rec codegen_sexpr llbuilder = function
 		|   SObjAccess(e1, e2, d)     	-> codegen_obj_access true e1 e2 d llbuilder
 
 		|   SNoexpr        -> build_add (const_int i32_t 0) (const_int i32_t 0) "nop" llbuilder
-
+		|   SUnop(op, e, d)           	-> handle_unop op e d llbuilder
 		| 	_  as  e -> raise(Failure("expression not match :"^ (Sast.string_of_sexpr e)))
 
 
@@ -313,7 +313,28 @@ and binop_gen e1 op e2 d llbuilder =
 	in
 
 	type_handler d
+	
+and handle_unop op e d llbuilder =
+	(* Get the type of e *) 
+	let eType = Semant.get_type_from_sexpr e in
+	(* Get llvalue  *)
+	let e = codegen_sexpr llbuilder e in
 
+	let unops op eType e = match (op, eType) with
+		(Sub, Datatype(Int_t)) 		->  build_neg e "int_unoptmp" llbuilder
+	|   (Sub, Datatype(Float_t)) 	-> 	build_fneg e "flt_unoptmp" llbuilder
+	|   (Not, Datatype(Bool_t)) 	->  build_not e "bool_unoptmp" llbuilder
+	|   _ 	 -> raise(Failure("Unary operation not support for this type: " ^ string_of_datatype eType))	in
+
+	let unop_type_handler d = match d with
+				Datatype(Float_t)   
+			|	Datatype(Int_t)		
+			|   Datatype(Bool_t)	-> unops op eType e
+			|   _  -> raise(Failure("Unary operation not support for this type: " ^ string_of_datatype d))
+		in
+		
+		unop_type_handler d
+		
 and codegen_sizeof el llbuilder =
 	let type_of_sexpr = Semant.get_type_from_sexpr (List.hd el) in
 	let type_of_sexpr = get_type type_of_sexpr in

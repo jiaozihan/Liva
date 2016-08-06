@@ -1,0 +1,8 @@
+class test {
+  void main(){
+	int i = 3;
+	int j;
+	j = -(-(i) + i * i);
+	print(j);
+  }	
+}

@@ -1,0 +1,9 @@
+class test {
+  void main(){
+	int i = 1;
+	int j = 1;
+	if (i >= j) print("yes");
+	else print("no");
+
+  }	
+}

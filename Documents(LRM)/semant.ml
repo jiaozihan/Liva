@@ -372,7 +372,7 @@ and check_assign env e1 e2 =
 and check_unop env op e = 
 	let check_num_unop t = function(*operator for number*)
 		   Sub     -> t
-		|  _ as o  -> raise (Failure ("Invalid unary operation: " ^ string_of_op o))
+		|  _ as o  -> raise (Failure ("KAKAKAKAAAA"))(*raise (Failure ("Invalid unary operation: " ^ string_of_op o))*)
 	in 
 	let check_bool_unop = function(*operator for bool*)
 		   Not    -> Datatype(Bool_t)
@@ -420,7 +420,7 @@ and expr_to_sexpr env = function
 |   ArrayCreate(d, el)  -> check_array_init env d el, env
 |   ArrayAccess(e, el)  -> check_array_access env e el, env
 |   Assign(e1, e2)      -> check_assign env e1 e2, env
-|   Unop(op, e)         -> check_unop env op e, env
+|   Unop(op, e)         -> check_unop env op e, env)
 |   Binop(e1, op, e2)   -> check_binop env e1 op e2, env
 
 and get_type_from_sexpr = function(*get the type of sexpression*)
