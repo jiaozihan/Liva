@@ -52,6 +52,8 @@ let update_env_name env env_name =
 
 let struct_indexes: (string, int) Hashtbl.t =  Hashtbl.create 10
 
+let predecessors:(string, string list) Hashtbl.t = Hashtbl.create 10
+
 let build_struct_indexes cdecls= 
 	let cdecls_handler index cdecl=
 	Hashtbl.add struct_indexes cdecl.cname index in 
@@ -63,6 +65,8 @@ let default_c =
 	returnType = Datatype(ConstructorType);
 	formals    = [];
 	body       = [];
+	overrides 		= false;
+	root_cname 		= None;
 }
 
 
@@ -122,6 +126,7 @@ let default_sc cname =
 	sformals 	= [];
 	sbody 		= default_constructor_body cname;
 	func_type	= Sast.User;
+	overrides   = false;
 	source 		= "NA";
 }
 
@@ -466,12 +471,14 @@ let store_reserved_functions =
 	    str_t = Arraytype( Char_t, 1) in 
 	let m t s = Formal(t, s) in
 	let reserved_stub fname return_type formals = 
-	      { sfname = FName (fname);
-		sreturnType = return_type;
-		sformals= formals;	
-		func_type= Sast.Reserved;
-		sbody=[];
-		source= "NA"
+	    { 
+	    	sfname = FName (fname);
+			sreturnType = return_type;
+			sformals= formals;	
+			func_type= Sast.Reserved;
+			sbody=[];
+			overrides 		= false;
+			source= "NA"
 		}
 	in
 
@@ -563,9 +570,224 @@ let build_class_maps reserved_functions cdecls =
 	in List.fold_left assistant StringMap.empty cdecls
 
 
-(* to-do handle_inheritance *)
-let handle_inheritance cdecls class_maps = class_maps, cdecls
-		
+(*to do*)
+let rec handle_inheritance cdecls class_maps =
+	let predecessors = build_inheritance_forest cdecls class_maps in
+	let cdecls_inherited = inherit_fields_cdecls cdecls predecessors in
+	let func_maps_inherited = build_func_map_inherited_lookup cdecls_inherited in
+	(*to do*)
+	let cmaps_with_inherited_fields = inherit_fields class_maps predecessors in
+	let cmaps_inherited = add_inherited_methods cmaps_with_inherited_fields cdecls_inherited func_maps_inherited in
+	cmaps_inherited, cdecls_inherited
+
+and build_inheritance_forest cdecls cmap = 
+	let handler a cdecl =
+		match cdecl.extends with 
+			Parent(s) 	-> 
+				let new_list = if (StringMap.mem s a) then
+					cdecl.cname::(StringMap.find s a)
+				else
+					[cdecl.cname]
+				in
+				Hashtbl.add predecessors s new_list; 
+				(StringMap.add s new_list a) 
+		| 	NoParent 	-> a
+	in
+	let forest = List.fold_left handler StringMap.empty cdecls in
+
+	let handler key value = 
+		if not (StringMap.mem key cmap) then 
+			raise (Failure("undefined class"))
+	in
+	ignore(StringMap.iter handler forest);
+	forest
+
+and inherit_fields_cdecls cdecls inheritance_forest = 
+	(* iterate through cdecls to make a map for lookup *)
+	let cdecl_lookup = List.fold_left (fun a litem -> StringMap.add litem.cname litem a) StringMap.empty cdecls in
+	let add_key key pred maps = 
+		let elem1 = StringSet.add key (fst maps) in
+		let accum acc child = StringSet.add child acc in
+		let elem2 = List.fold_left (accum) (snd maps) pred in
+		(elem1, elem2)
+	in
+	let empty_s = StringSet.empty in
+	let res = StringMap.fold add_key inheritance_forest (empty_s, empty_s) in
+	let roots = StringSet.diff (fst res) (snd res) in
+	let rec add_inherited_fields predec desc map_to_update = 
+		let merge_fields accum descendant = 
+			let updated_predec_cdecl = StringMap.find predec accum in 
+			let descendant_cdecl_to_update = StringMap.find descendant cdecl_lookup in
+			let merged = merge_cdecls updated_predec_cdecl descendant_cdecl_to_update in 
+			let updated = (StringMap.add descendant merged accum) in 
+			if (StringMap.mem descendant inheritance_forest) then 
+				let descendants_of_descendant = StringMap.find descendant inheritance_forest in
+				add_inherited_fields descendant descendants_of_descendant updated
+			else updated
+		in
+		List.fold_left merge_fields map_to_update desc
+	in
+	(* map class name of every class_decl in `cdecls` to its inherited cdecl *)
+	let inherited_cdecls = 
+		let traverse_tree tree_root accum = 
+			let tree_root_descendant = StringMap.find tree_root inheritance_forest in 
+			let accum_with_tree_root_mapping = StringMap.add tree_root (StringMap.find tree_root cdecl_lookup) accum in
+			add_inherited_fields tree_root tree_root_descendant accum_with_tree_root_mapping
+		in
+		StringSet.fold traverse_tree roots StringMap.empty 
+	in
+	(* build a list of updated cdecls corresponding to the sequence of cdecls in `cdecls` *)
+	let add_inherited_cdecl cdecl accum = 
+		let inherited_cdecl = 
+			try StringMap.find cdecl.cname inherited_cdecls 
+			with | Not_found -> cdecl
+		in
+		inherited_cdecl::accum
+	in
+	let result = List.fold_right add_inherited_cdecl cdecls [] in
+	result
+
+
+and merge_cdecls base_cdecl child_cdecl = 
+(* return a cdecl in which cdecl.cbody.fields contains the fields of 
+the extended class, concatenated by the fields of the child class *)
+	let child_cbody = 
+		{
+			fields = base_cdecl.cbody.fields @ child_cdecl.cbody.fields;
+			 constructors = child_cdecl.cbody.constructors;
+			 methods = merge_methods base_cdecl.cname base_cdecl.cbody.methods child_cdecl.cbody.methods
+		}
+		in
+		{
+			cname = child_cdecl.cname;
+			extends = child_cdecl.extends;
+			cbody = child_cbody
+		}
+
+and merge_methods base_cname base_methods child_methods =
+	let check_overrides child_fdecl accum = 
+		let base_checked_for_overrides = 
+			replace_fdecl_in_base_methods base_cname (fst accum) child_fdecl 
+		in
+		if (fst accum) = base_checked_for_overrides
+			then ((fst accum), child_fdecl::(snd accum)) 
+			else (base_checked_for_overrides, (snd accum))
+	in
+	let updated_base_and_child_fdecls = 
+		List.fold_right check_overrides child_methods (base_methods, [])
+	in
+	(fst updated_base_and_child_fdecls) @ (snd updated_base_and_child_fdecls)
+
+and replace_fdecl_in_base_methods base_cname base_methods child_fdecl = 
+	let replace base_fdecl accum = 
+		let get_root_cname = function
+			None -> Some(base_cname)
+			| Some(x) -> Some(x)
+		in
+		let modify_child_fdecl = 
+			{
+				fname = child_fdecl.fname;
+				returnType = child_fdecl.returnType;
+				formals = child_fdecl.formals;
+				body = child_fdecl.body;
+				overrides = true;
+				root_cname = get_root_cname base_fdecl.root_cname;
+			} 
+		in
+		if (get_name_without_class base_fdecl) = (get_name_without_class child_fdecl) 
+			then modify_child_fdecl::accum 
+			else base_fdecl::accum
+	in
+	List.fold_right replace base_methods []
+
+and get_name_without_class fdecl = 
+
+	let params = List.fold_left (fun s -> (function Formal(t, _) -> s ^ "." ^ Ast.string_of_datatype t | _ -> "" )) "" fdecl.formals in
+	let name = Ast.string_of_fname fdecl.fname in
+    let ret_type = Ast.string_of_datatype fdecl.returnType in
+    ret_type ^ "." ^ name ^ "." ^ params
+
+
+
+and build_func_map_inherited_lookup cdecls_inherited = 
+	let build_func_map cdecl =
+		let add_func m fdecl = StringMap.add (get_name cdecl.cname fdecl) fdecl m in
+		List.fold_left add_func StringMap.empty cdecl.cbody.methods
+	in
+	let add_class_func_map m cdecl = StringMap.add cdecl.cname (build_func_map cdecl) m in
+	List.fold_left add_class_func_map StringMap.empty cdecls_inherited
+
+and inherit_fields class_maps predecessors =
+	(* Get basic inheritance map *)
+	let add_key key pred map = StringMap.add key pred map in
+	let cmaps_inherit = StringMap.fold add_key class_maps StringMap.empty in
+	(* Perform accumulation of child classes *)
+	let add_key key pred maps = 
+		let elem1 = StringSet.add key (fst maps) in
+		let accum acc child = StringSet.add child acc in
+		let elem2 = List.fold_left (accum) (snd maps) pred in
+		(elem1, elem2)
+	in
+	let empty_s = StringSet.empty in
+	let res = StringMap.fold add_key predecessors (empty_s, empty_s) in
+	let roots = StringSet.diff (fst res) (snd res) in
+	(*in let _ = print_set_members roots*)
+	let rec add_inherited_fields predec desc cmap_to_update = 
+		let cmap_inherit accum descendant = 
+			let predec_field_map = (StringMap.find predec accum).field_map in
+			let desc_field_map = (StringMap.find descendant accum).field_map in 
+			let merged = merge_maps predec_field_map desc_field_map in 
+			let updated = update_class_maps "field_map" merged descendant accum in
+			if (StringMap.mem descendant predecessors) then 
+				let descendants_of_descendant = StringMap.find descendant predecessors in
+				add_inherited_fields descendant descendants_of_descendant updated 
+			else updated
+		in
+		List.fold_left cmap_inherit cmap_to_update desc
+		(* end of add_inherited_fields *)
+	in 
+	let result = StringSet.fold (fun x a -> add_inherited_fields x (StringMap.find x predecessors) a) roots cmaps_inherit
+	(*in let _ = print_map result*)
+	in result
+
+and merge_maps m1 m2 = 
+	StringMap.fold (fun k v a -> StringMap.add k v a) m1 m2
+
+and update_class_maps map_type cmap_val cname cmap_to_update = 
+	let update m map_type = 
+		if map_type = "field_map" then
+			{
+				field_map = cmap_val;
+				func_map = m.func_map;
+				constructor_map = m.constructor_map;
+				reserved_functions_map = m.reserved_functions_map;
+				cdecl = m.cdecl;
+			}
+		else m
+	in
+	let updated = StringMap.find cname cmap_to_update in
+	let updated = update updated map_type in
+	let updated = StringMap.add cname updated cmap_to_update in
+	updated
+
+and add_inherited_methods cmaps cdecls func_maps_inherited = 
+	let find_cdecl cname = 
+		try List.find (fun cdecl -> cdecl.cname = cname) cdecls
+		with | Not_found -> raise Not_found
+	in
+	let update_with_inherited_methods cname cmap = 
+		let fmap = StringMap.find cname func_maps_inherited in
+		let cdecl = find_cdecl cname in
+		{
+			field_map = cmap.field_map;
+			func_map = fmap;
+			constructor_map = cmap.constructor_map;
+			reserved_functions_map = cmap.reserved_functions_map;
+			cdecl = cdecl;
+		}
+	in
+	let add_updated_cmap cname cmap accum = StringMap.add cname (update_with_inherited_methods cname cmap) accum in
+	StringMap.fold add_updated_cmap cmaps StringMap.empty
 
 
 (*shanqi to do*)
@@ -671,6 +893,8 @@ and  check_stmt env = function
 	| 	If(e, s1, s2) 		-> check_if_stmt e s1 s2	env
 	|   While( e, s) 	-> check_while_stmt e s env
 	| 	For(e1, e2, e3, e4) 	-> check_for_stmt e1 e2 e3 e4 env
+	|  	Break 				-> SBreak, env 
+	|       Continue 			-> SContinue, env 
 
 and  convert_stmt_list_to_sstmt_list env stmt_list =
 	let env_ref = ref(env)
@@ -705,6 +929,7 @@ let convert_constructor_to_sfdecl class_maps reserved class_map cname constructo
 				sformals 	= constructor.formals;
 				sbody 		= fbody; (*TODO*)
 				func_type	= Sast.User;
+				overrides 	= false;
 				source 		= "NA";
 			}
 
@@ -757,6 +982,7 @@ let convert_fdecl_to_sfdecl class_maps reserved class_map cname fdecl=
 		sformals 	= class_formal :: fdecl.formals;
 		sbody 		= fbody;
 		func_type	= Sast.User;
+		overrides   = fdecl.overrides;
 		source 		= cname;
 	}
 

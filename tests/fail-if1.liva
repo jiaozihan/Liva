@@ -2,7 +2,7 @@ class test {
 
   void main(){
 
-    print ("Hello World!");
+	if ("123") print(42); 
 
   }	
 }

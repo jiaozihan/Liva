@@ -1,0 +1,8 @@
+class arith {
+	void main() 
+	{
+		int i;
+		i = 15 * 5;
+		print(i);
+	}
+}

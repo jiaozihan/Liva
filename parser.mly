@@ -107,7 +107,8 @@ constructor:
 			returnType = Datatype(ConstructorType);
 			formals = $3;
 			body = List.rev $6;
-			
+			overrides = false;
+            root_cname = None;		
 			
         
 		}
@@ -139,7 +140,8 @@ fdecl:
 			returnType = $1;
 			formals = $4;
 			body = List.rev $7;
-			
+			overrides = false;
+            root_cname = None;		
             
 		} 
 	}

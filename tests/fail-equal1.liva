@@ -1,0 +1,8 @@
+class test {
+  void main(){
+	float i = 1.0;
+	if (i == 1.0) print(42); 
+	else print(8);
+
+  }	
+}
