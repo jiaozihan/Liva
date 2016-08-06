@@ -169,6 +169,8 @@ and codegen_stmt llbuilder = function
 		
 	| SWhile(se, s)   -> codegen_while_stmt se s llbuilder
 	| SFor (se1, se2, se3, s) -> codegen_for_stmt se1 se2 se3 s llbuilder
+	| SBreak 	   -> codegen_break llbuilder 
+	| SContinue    	   -> codegen_continue llbuilder
 
 
 
