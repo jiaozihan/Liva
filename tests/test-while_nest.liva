@@ -1,0 +1,16 @@
+class test {
+  void main(){
+	int i = 1;
+	int j;
+	while(i < 10)
+	{
+		j = 11;
+		while(j < 13)
+		{
+			print("i = ", i, " ", "j = ", j, "\n");
+			j = j + 1;
+		}
+		i = i + 1;
+	}
+  }	
+}
