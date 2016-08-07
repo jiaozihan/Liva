@@ -1,0 +1,16 @@
+class test {
+	void main() {
+		float[] a = new float[10];
+		int[] b = new int[10];
+		int i;
+		a[0] = 1.0;
+		b[0] = 1;
+		for(i = 1; i < 10; i = i + 1)
+		{
+			a[i] = a[i - 1] + 1.0;
+			b[i] = b[i - 1] + 1;
+		}
+        for(i = 0; i < 10; i = i + 1)
+			print("a[",i,"]"," = ",a[i]," , ", "b[",i,"]"," = ",b[i], "\n");
+	}
+}
