@@ -1,0 +1,16 @@
+class test {
+  void main(){
+	int i = 1;
+	int j = 3;
+	if (true)
+	{
+		if(i == 1)
+		{
+			if(i < j)
+			{
+				print(j);
+			}
+		}
+	}
+  }	
+}

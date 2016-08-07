@@ -29,10 +29,10 @@ module StringMap = Map.Make(String)
 let context = global_context ()
 let the_module = create_module context "Liva"
 let builder = builder context
-let named_values:(string, llvalue) Hashtbl.t = Hashtbl.create 50
-let named_params:(string, llvalue) Hashtbl.t = Hashtbl.create 50
-let struct_types:(string, lltype) Hashtbl.t = Hashtbl.create 10
-let struct_field_indexes:(string, int) Hashtbl.t = Hashtbl.create 50
+let named_values:(string, llvalue) Hashtbl.t = Hashtbl.create 100
+let named_params:(string, llvalue) Hashtbl.t = Hashtbl.create 100
+let struct_types:(string, lltype) Hashtbl.t = Hashtbl.create 100
+let struct_field_indexes:(string, int) Hashtbl.t = Hashtbl.create 100
 
 
 let str_type = Arraytype(Char_t, 1)(*to do*)
@@ -46,15 +46,14 @@ let str_t = L.pointer_type i8_t;;
 let i64_t = L.i64_type context;;
 let void_t = L.void_type context;;
 
-
-(*control flow references*)
+(*)
 let br_block = ref (L.block_of_value (L.const_int i32_t 0))
 and cont_block = ref (L.block_of_value (L.const_int i32_t 0))
 and is_loop = ref false 
+*)
 
-let find_struct name = 
-	try Hashtbl.find struct_types name
-	with | Not_found -> raise(Failure ("undeclared struct"^ name))
+
+
 
 
 let rec get_ptr_type datatype = match datatype with
@@ -62,6 +61,12 @@ let rec get_ptr_type datatype = match datatype with
 	|	Arraytype(t, 1) -> pointer_type (get_type (Datatype(t)))
 	|	Arraytype(t, i) -> pointer_type (get_ptr_type (Arraytype(t, (i-1))))
 	| 	_ -> raise(Failure ("Invalid Array Pointer Type"))
+
+
+and find_struct name = 
+	try Hashtbl.find struct_types name
+	with | Not_found -> raise(Failure ("undeclared struct"^ name))
+
 
 
 and get_type datatype = match datatype with 
@@ -74,6 +79,52 @@ and get_type datatype = match datatype with
 	| 	Datatype(Objecttype(name)) -> pointer_type(find_struct name)
 	| 	Arraytype(t, i) -> get_ptr_type (Arraytype(t, (i)))
 	| 	d -> raise(Failure ("Invalid DataType")) 
+
+
+
+
+
+
+
+let cast lhs rhs lhsType rhsType llbuilder = 
+	match (lhsType, rhsType) with
+		(* int to,__ ) ( using const_sitofp for signed ints *)
+		(Datatype(Int_t), Datatype(Int_t))				-> (lhs, rhs), Datatype(Int_t)
+	| 	(Datatype(Int_t), Datatype(Char_t))				-> (build_uitofp lhs i8_t "tmp" llbuilder, rhs), Datatype(Char_t)
+	(* |   	(Datatype(Int_t), Datatype(Bool_t))				-> (lhs, const_zext rhs i32_t) *)
+	|   (Datatype(Int_t), Datatype(Float_t)) 			-> (build_sitofp lhs f_t "tmp" llbuilder, rhs), Datatype(Float_t)
+
+		(* char to,__)  ( using uitofp since char isn't signed *)
+	|   (Datatype(Char_t), Datatype(Int_t)) 			-> (lhs, build_uitofp rhs i8_t "tmp" llbuilder), Datatype(Char_t)
+	|   (Datatype(Char_t), Datatype(Char_t)) 			-> (lhs, rhs), Datatype(Char_t)
+	(* | 	(Datatype(Char_t), Datatype(Bool_t))			-> (lhs, const_zext rhs i8_t) *)
+	(* | 	(Datatype(Char_t), Datatype(Float_t))			-> (const_uitofp lhs f_t, rhs) *)
+
+		(* bool to,__)  ( zext fills the empty bits with zeros, zero extension *)
+	(* |   	(Datatype(Bool_t), Datatype(Int_t)) 			-> (const_zext lhs i32_t, rhs) *)
+	(* | 	(Datatype(Bool_t), Datatype(Char_t))			-> (const_zext lhs i8_t, rhs) *)
+	|   	(Datatype(Bool_t), Datatype(Bool_t))			-> (lhs, rhs), Datatype(Bool_t)
+	(* |   	(Datatype(Bool_t), Datatype(Float_t))			-> (const_uitofp lhs f_t, rhs) *)
+
+		(* float to,__) ( using fptosi for signed ints *)
+	|   (Datatype(Float_t), Datatype(Int_t)) 			-> (lhs, build_sitofp rhs f_t "tmp" llbuilder), Datatype(Float_t)
+	(* | 	(Datatype(Float_t), Datatype(Char_t))			-> (lhs, const_uitofp rhs f_t) *)
+	(* |   	(Datatype(Float_t), Datatype(Bool_t))			-> (lhs, const_uitofp rhs f_t) *)
+	|   (Datatype(Float_t), Datatype(Float_t)) 			-> (lhs, rhs), Datatype(Float_t)
+
+	| Datatype(Objecttype(d)), Datatype(Null_t)			-> (lhs, rhs), lhsType
+	| Datatype(Null_t), Datatype(Objecttype(d)) 		-> (rhs, lhs), rhsType
+	| Datatype(Objecttype(d)), t 						-> raise(Failure(""))
+
+	| Arraytype(d, s), Datatype(Null_t)					-> (lhs, rhs), lhsType
+	| Datatype(Null_t), Arraytype(d, s) 				-> (rhs, lhs), rhsType
+	| Arraytype(d, _), t 								-> raise(Failure(""))
+
+	| 	_ 												-> raise (Failure(""))
+
+
+
+
 
 
 let codegen_struct_stub s =
@@ -117,7 +168,7 @@ let init_parameters f formals =
     ) (params f)
 
 
-and func_lookup fname = 
+let func_lookup fname = 
 	match (L.lookup_function fname the_module) with
 		None -> raise (Failure("Function NotFound in module: " ^ fname))
 	|  	Some f -> f
@@ -126,19 +177,16 @@ and func_lookup fname =
 (* expression code generation*)
 let rec codegen_sexpr llbuilder = function
 
-		SInt_Lit(i) -> L.const_int i32_t i
+			SInt_Lit(i) -> L.const_int i32_t i
 		| 	SBoolean_Lit(b) -> if b then const_int i1_t 1 else const_int i1_t 0
-
-
-		(*let temp = L.build_global_stringptr (string_of_boolean b) "str" llbuilder in temp*)
-		
 		|   SFloat_Lit(f)   -> L.const_float f_t  f
 		|   SChar_Lit(c)    -> const_int i8_t (Char.code c)
 		| 	SString_Lit s   -> codegen_string_lit s llbuilder
 
 		|   SId(id, d)      -> codegen_id true false id d llbuilder
-		|   SBinop(e1, op, e2, d)     -> binop_gen e1 op e2 d llbuilder
-	    
+		|   SBinop(e1, op, e2, d)    -> binop_gen e1 op e2 d llbuilder
+		|   SUnop(op, e, d)          -> handle_unop op e d llbuilder	
+
 		|   SAssign(e1, e2, d)        	-> assign_gen e1 e2 d llbuilder
 	    |   SCall(fname, expr_list, d, _)  -> codegen_call llbuilder d expr_list fname
 
@@ -147,16 +195,17 @@ let rec codegen_sexpr llbuilder = function
 
 		|   SNoexpr        -> build_add (const_int i32_t 0) (const_int i32_t 0) "nop" llbuilder
 
+
+	|   SArrayCreate(t, el, d)    	-> codegen_array_create llbuilder t d el
+		|   SArrayAccess(e, el, d)    	-> codegen_array_access false e el d llbuilder
+
+(*)
+
+	|   SArrayPrimitive(el, d)    	-> codegen_array_prim d el llbuilder 
+		|   SNull          	        	-> const_null i32_t
+*)(*to do*)
+
 		| 	_  as  e -> raise(Failure("expression not match :"^ (Sast.string_of_sexpr e)))
-
-
-and codegen_continue llbuilder =
-	let b= fun() -> !cont_block in
-	L.build_br (b()) llbuilder
-
-and codegen_break llbuilder =
-  	let b= fun() -> !br_block in
-	L.build_br (b ()) llbuilder
 
 and codegen_stmt llbuilder = function 
 
@@ -169,14 +218,12 @@ and codegen_stmt llbuilder = function
 		
 	| SWhile(se, s)   -> codegen_while_stmt se s llbuilder
 	| SFor (se1, se2, se3, s) -> codegen_for_stmt se1 se2 se3 s llbuilder
-	| SBreak 	   -> codegen_break llbuilder 
-	| SContinue    	   -> codegen_continue llbuilder
 
 
 
 and codegen_for_stmt start cond step body llbuilder = 
-	let old_val = !is_loop in
-	is_loop := true;
+	(*let old_val = !is_loop in
+	is_loop := true;*)
 	let  preheader_bb = insertion_block llbuilder in
 	let  the_function = block_parent preheader_bb  in
 	let  start_val= codegen_sexpr llbuilder start in
@@ -190,10 +237,10 @@ and codegen_for_stmt start cond step body llbuilder =
 	
 	let after_bb = append_block context "afterloop" the_function in
 
-	let _ = if not old_val then
-		cont_block := step_bb;
+	(*let _ = if not old_val then
+		cont_block := inc_bb;
 		br_block := after_bb;
-	in
+	in*)
 
 	
 	ignore (build_br cond_bb llbuilder);
@@ -239,7 +286,27 @@ and codegen_while_stmt pred body_stmt llbuilder =
 and codegen_print expr_list llbuilder = 
 	let printf = func_lookup "printf" in
 
-	let map_expr_to_printfexpr expr =  codegen_sexpr llbuilder expr
+	let tmp_count = ref 0 in
+	let incr_tmp = fun x -> incr tmp_count in
+
+
+
+	let map_expr_to_printfexpr expr =
+		let exprType = Semant.get_type_from_sexpr expr in
+		match exprType with 
+		Datatype(Bool_t) ->
+			incr_tmp ();
+			let tmp_var = "tmp" ^ (string_of_int !tmp_count) in
+			let trueStr = SString_Lit("true") in
+			let falseStr = SString_Lit("false") in
+			let id = SId(tmp_var, str_type) in 
+			ignore(codegen_stmt llbuilder (SLocal(str_type, tmp_var, SNoexpr)));
+			ignore(codegen_stmt llbuilder (SIf(expr, 
+											SExpr(SAssign(id, trueStr, str_type), str_type), 
+											SExpr(SAssign(id, falseStr, str_type), str_type)
+										)));
+			codegen_sexpr llbuilder id
+		| _ -> codegen_sexpr llbuilder expr
 	in
 
 	let params = List.map map_expr_to_printfexpr expr_list in
@@ -303,21 +370,60 @@ and binop_gen e1 op e2 d llbuilder =
 		| 	_ 			-> raise(Failure("Invalid operator for integers"))
 	in	
 
+	let obj_ops op e1 e2 = 
+		match op with
+			Equal -> build_is_null e1 "tmp" llbuilder 
+		| 	Neq -> build_is_not_null e1 "tmp" llbuilder 
+		| 	_ 	-> raise (Failure("not supported"))
+	in
+
+	let (e1, e2), d = cast e1 e2 type1 type2 llbuilder in
 
 	let type_handler d = match d with
 			Datatype(Float_t)   -> float_ops op e1 e2
 		|	Datatype(Int_t)	
 		|   Datatype(Bool_t)
 		| 	Datatype(Char_t) 	-> int_ops op e1 e2
+		| 	Datatype(Objecttype(_))
+		| 	Arraytype(_, _) -> obj_ops op e1 e2
 		|   _ -> raise (Failure("Invalid binop type"))
 	in
 
 	type_handler d
 
+
+and handle_unop op e d llbuilder =
+	(* Get the type of e *) 
+	let eType = Semant.get_type_from_sexpr e in
+	(* Get llvalue  *)
+	let e = codegen_sexpr llbuilder e in
+
+	let unops op eType e = match (op, eType) with
+		(Sub, Datatype(Int_t)) 		->  build_neg e "int_unoptmp" llbuilder
+	|   (Sub, Datatype(Float_t)) 	-> 	build_fneg e "flt_unoptmp" llbuilder
+	|   (Not, Datatype(Bool_t)) 	->  build_not e "bool_unoptmp" llbuilder
+	|    _ 	 -> raise (Failure("unop not supported"))	in
+
+	let unop_type_handler d = match d with
+				Datatype(Float_t)   
+			|	Datatype(Int_t)		
+			|   Datatype(Bool_t)	-> unops op eType e
+			|   _ -> raise (Failure("invalid unop type  "))
+		in
+		
+		unop_type_handler d
+
+
+
+
+
+
+
+
 and codegen_sizeof el llbuilder =
 	let type_of_sexpr = Semant.get_type_from_sexpr (List.hd el) in
 	let type_of_sexpr = get_type type_of_sexpr in
-	let size_of_typ = (L.size_of type_of_sexpr) in	
+	let size_of_typ = L.size_of type_of_sexpr in	
 	L.build_intcast size_of_typ i32_t "tmp" llbuilder
 
 	(*raise(Failure("codegen size of cas Failure"));
@@ -343,8 +449,10 @@ and codegen_cast el d llbuilder =
 	let t = Semant.get_type_from_sexpr expr in
 	let lhs = match expr with
 	| 	Sast.SId(id, d) -> codegen_id false false id d llbuilder
-	(*|  	SObjAccess(e1, e2, d) -> codegen_obj_access false e1 e2 d llbuilder
-	| 	SArrayAccess(se, sel, d) -> codegen_array_access true se sel d llbuilder*)(*to do*)
+	|  	SObjAccess(e1, e2, d) -> codegen_obj_access false e1 e2 d llbuilder
+(*to do*)
+	(*| 	SArrayAccess(se, sel, d) -> codegen_array_access true se sel d llbuilder*)
+
 	| _ -> codegen_sexpr llbuilder expr
 	in
 	cast_malloc_to_objtype lhs t d llbuilder
@@ -370,18 +478,21 @@ and codegen_id isDeref checkParam id d llbuilder =
 		with | Not_found ->
 			try 
 				let _val = Hashtbl.find named_params id in
-				L.build_load _val id llbuilder
-			with | Not_found -> raise (Failure("unknown var id"))
+				if checkParam then raise (Failure("cannot assign"))
+				else _val
+			with | Not_found -> raise (Failure("2 unknown variable id "^ id))
 
 and assign_gen lhs rhs d llbuilder = 
 	let rhs_t = Semant.get_type_from_sexpr rhs in
 	let lhs, isObjAccess = match lhs with
 		| Sast.SId(id, d) -> codegen_id false false id d llbuilder, false
 		| SObjAccess(e1, e2, d) -> codegen_obj_access false e1 e2 d llbuilder, true
+		| SArrayAccess(se, sel, d) -> codegen_array_access true se sel d llbuilder, true
 		| _ -> raise (Failure("Left hand side must be assignable"))
 	in
 	let rhs = match rhs with 
-		| 	Sast.SId(id, d) -> codegen_id true false id d llbuilder
+		| 	Sast.SId(id, d) -> codegen_id false false id d llbuilder
+		|  	SObjAccess(e1, e2, d) -> codegen_obj_access true e1 e2 d llbuilder
 		| _ -> codegen_sexpr llbuilder rhs
 	in
 	let rhs = match d with 
@@ -399,7 +510,8 @@ and assign_gen lhs rhs d llbuilder =
 	ignore(L.build_store rhs lhs llbuilder);
 	rhs
 
-
+and deref ptr t llbuilder = 
+	build_gep ptr (Array.of_list [ptr]) "tmp" llbuilder
 
 and codegen_if_stmt exp then_stmt else_stmt llbuilder =
 	
@@ -459,7 +571,10 @@ and codegen_if_stmt exp then_stmt else_stmt llbuilder =
 
 (*to do*)
 and codegen_obj_access isAssign lhs rhs d llbuilder = 
+
+
 	let codegen_func_call param_ty fptr parent_expr el d llbuilder = 
+
 		let match_sexpr se = match se with
 			SId(id, d) -> let isDeref = match d with
 				Datatype(Objecttype(_)) -> false
@@ -473,10 +588,11 @@ and codegen_obj_access isAssign lhs rhs d llbuilder =
 			Datatype(Void_t) -> build_call fptr (Array.of_list (parent_expr :: params)) "" llbuilder
 		| 	_ -> build_call fptr (Array.of_list (parent_expr :: params)) "tmp" llbuilder
 	in
+
 	let check_lhs = function
 		SId(s, d)				-> codegen_id false false s d llbuilder
 	(*| 	SArrayAccess(e, el, d)	-> codegen_array_access false e el d llbuilder*)
-	| 	se 	-> raise (Failure("check lhd error"))
+		| se -> raise (Failure("check lhd error"))
 	in
 	(* Needs to be changed *)
 	let rec check_rhs isLHS parent_expr parent_type = 
@@ -549,12 +665,174 @@ and codegen_obj_access isAssign lhs rhs d llbuilder =
 
 
 
-
-
 and codegen_string_lit s llbuilder = 
 	if s = "true" then build_global_stringptr "true" "tmp" llbuilder
 	else if s = "false" then build_global_stringptr "false" "tmp" llbuilder
 	else build_global_stringptr s "tmp" llbuilder
+
+
+
+and initialise_array arr arr_len init_val start_pos llbuilder =
+	let new_block label =
+		let f = block_parent (insertion_block llbuilder) in
+		append_block (global_context ()) label f
+	in
+  let bbcurr = insertion_block llbuilder in
+  let bbcond = new_block "array.cond" in
+  let bbbody = new_block "array.init" in
+  let bbdone = new_block "array.done" in
+  ignore (build_br bbcond llbuilder);
+  position_at_end bbcond llbuilder;
+
+  (* Counter into the length of the array *)
+  let counter = build_phi [const_int i32_t start_pos, bbcurr] "counter" llbuilder in
+  add_incoming ((build_add counter (const_int i32_t 1) "tmp" llbuilder), bbbody) counter;
+  let cmp = build_icmp Icmp.Slt counter arr_len "tmp" llbuilder in
+  ignore (build_cond_br cmp bbbody bbdone llbuilder);
+  position_at_end bbbody llbuilder;
+
+  (* Assign array position to init_val *)
+  let arr_ptr = build_gep arr [| counter |] "tmp" llbuilder in
+  ignore (build_store init_val arr_ptr llbuilder);
+  ignore (build_br bbcond llbuilder);
+  position_at_end bbdone llbuilder
+
+and codegen_array_create llbuilder t expr_type el = 
+	if(List.length el > 1) then raise(Failure("array not supported"))
+	else
+	match expr_type with 
+		Arraytype(Char_t, 1) -> 
+		let e = List.hd el in
+		let size = (codegen_sexpr llbuilder e) in
+		let t = get_type t in
+		let arr = build_array_malloc t size "tmp" llbuilder in
+		let arr = build_pointercast arr (pointer_type t) "tmp" llbuilder in
+		(* initialise_array arr size (const_int i32_t 0) 0 llbuilder; *)
+		arr
+	| 	_ -> 
+		let e = List.hd el in
+		let t = get_type t in
+
+		(* This will not work for arrays of objects *)
+		let size = (codegen_sexpr llbuilder e) in
+		let size_t = build_intcast (size_of t) i32_t "tmp" llbuilder in
+		let size = build_mul size_t size "tmp" llbuilder in
+		let size_real = build_add size (const_int i32_t 1) "arr_size" llbuilder in
+		
+	    let arr = build_array_malloc t size_real "tmp" llbuilder in
+		let arr = build_pointercast arr (pointer_type t) "tmp" llbuilder in
+
+		let arr_len_ptr = build_pointercast arr (pointer_type i32_t) "tmp" llbuilder in
+
+		(* Store length at this position *)
+		ignore(build_store size_real arr_len_ptr llbuilder); 
+		initialise_array arr_len_ptr size_real (const_int i32_t 0) 0 llbuilder;
+		arr
+
+
+
+
+and codegen_array_access isAssign e el d llbuilder =
+	let index = codegen_sexpr llbuilder (List.hd el) in
+	let index = match d with
+		Datatype(Char_t) -> index
+	| 	_ -> build_add index (const_int i32_t 1) "tmp" llbuilder
+	in
+    let arr = codegen_sexpr llbuilder e in
+    let _val = build_gep arr [| index |] "tmp" llbuilder in
+    if isAssign
+    	then _val
+    	else build_load _val "tmp" llbuilder 
+
+(*to do*)
+(*)
+and codegen_array_access isAssign e el d llbuilder =
+	let index = codegen_sexpr llbuilder (List.hd el) in
+	let index = match d with
+		Datatype(Char_t) -> index
+	| 	_ -> build_add index (const_int i32_t 1) "tmp" llbuilder
+	in
+    let arr = codegen_sexpr llbuilder e in
+    let _val = build_gep arr [| index |] "tmp" llbuilder in
+    if isAssign
+    	then _val
+    	else build_load _val "tmp" llbuilder 
+
+and initialise_array arr arr_len init_val start_pos llbuilder =
+	let new_block label =
+		let f = block_parent (insertion_block llbuilder) in
+		append_block (global_context ()) label f
+	in
+  let bbcurr = insertion_block llbuilder in
+  let bbcond = new_block "array.cond" in
+  let bbbody = new_block "array.init" in
+  let bbdone = new_block "array.done" in
+  ignore (build_br bbcond llbuilder);
+  position_at_end bbcond llbuilder;
+
+  (* Counter into the length of the array *)
+  let counter = build_phi [const_int i32_t start_pos, bbcurr] "counter" llbuilder in
+  add_incoming ((build_add counter (const_int i32_t 1) "tmp" llbuilder), bbbody) counter;
+  let cmp = build_icmp Icmp.Slt counter arr_len "tmp" llbuilder in
+  ignore (build_cond_br cmp bbbody bbdone llbuilder);
+  position_at_end bbbody llbuilder;
+
+  (* Assign array position to init_val *)
+  let arr_ptr = build_gep arr [| counter |] "tmp" llbuilder in
+  ignore (build_store init_val arr_ptr llbuilder);
+  ignore (build_br bbcond llbuilder);
+  position_at_end bbdone llbuilder
+and codegen_array_create llbuilder t expr_type el = 
+	if(List.length el > 1) then raise(Exceptions.ArrayLargerThan1Unsupported)
+	else
+	match expr_type with 
+		Arraytype(Char_t, 1) -> 
+		let e = List.hd el in
+		let size = (codegen_sexpr llbuilder e) in
+		let t = get_type t in
+		let arr = build_array_malloc t size "tmp" llbuilder in
+		let arr = build_pointercast arr (pointer_type t) "tmp" llbuilder in
+		(* initialise_array arr size (const_int i32_t 0) 0 llbuilder; *)
+		arr
+	| 	_ -> 
+		let e = List.hd el in
+		let t = get_type t in
+
+		(* This will not work for arrays of objects *)
+		let size = (codegen_sexpr llbuilder e) in
+		let size_t = build_intcast (size_of t) i32_t "tmp" llbuilder in
+		let size = build_mul size_t size "tmp" llbuilder in
+		let size_real = build_add size (const_int i32_t 1) "arr_size" llbuilder in
+		
+	    let arr = build_array_malloc t size_real "tmp" llbuilder in
+		let arr = build_pointercast arr (pointer_type t) "tmp" llbuilder in
+
+		let arr_len_ptr = build_pointercast arr (pointer_type i32_t) "tmp" llbuilder in
+
+		(* Store length at this position *)
+		ignore(build_store size_real arr_len_ptr llbuilder); 
+		initialise_array arr_len_ptr size_real (const_int i32_t 0) 0 llbuilder;
+		arr
+
+and codegen_array_prim d el llbuilder =
+    let t = d in
+    let size = (const_int i32_t ((List.length el))) in
+    let size_real = (const_int i32_t ((List.length el) + 1)) in
+	let t = get_type t in
+    let arr = build_array_malloc t size_real "tmp" llbuilder in
+	let arr = build_pointercast arr t "tmp" llbuilder in
+	let size_casted = build_bitcast size t "tmp" llbuilder in
+	ignore(if d = Arraytype(Char_t, 1) then ignore(build_store size_casted arr llbuilder);); (* Store length at this position *)
+	(* initialise_array arr size_real (const_int i32_t 0) 1 llbuilder; *)
+
+    let llvalues = List.map (codegen_sexpr llbuilder) el in
+    List.iteri (fun i llval -> 
+    			let arr_ptr = build_gep arr [| (const_int i32_t (i+1)) |] "tmp" llbuilder in
+    			ignore(build_store llval arr_ptr llbuilder);  ) llvalues;
+    arr
+
+*)
+
 
 
   
@@ -618,6 +896,14 @@ let codegen_func sfdecl =
 	let f =func_lookup fname in 	
 	let llbuilder = L.builder_at_end context (L.entry_block f) in
 	let _ =init_parameters f sfdecl.sformals in 
+
+	let _ = if sfdecl.overrides then
+		let this_param = Hashtbl.find named_params "this" in
+		let source = Datatype(Objecttype(sfdecl.source)) in
+		let casted_param = build_pointercast this_param (get_type source) "casted" llbuilder in
+		Hashtbl.replace named_params "this" casted_param;
+	in
+
 	let _  = codegen_stmt llbuilder (SBlock (sfdecl.sbody)) in 
 	if sfdecl.sreturnType = Datatype (Void_t)
 	 then ignore (L.build_ret_void llbuilder);
@@ -731,22 +1017,3 @@ let translate sast =
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
- 
- 

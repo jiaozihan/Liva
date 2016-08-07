@@ -1,24 +1,40 @@
 
-class calculator{
-    int a;
+class myclass{
 
-    int addition(int x, int y){
+    int yy;
+    constructor(int a){
+        this.yy =a;
+    }
+
+
+}
+
+class calculator{
+    int g;
+    int addition(int x, int y){    
+        this.g =9;
+        int z;
+        z = x + y;
+        return(z);
+    }
+}
+
+class test {
+    int addition(int x, int y){    
         int z;
         z = x + y;
         return(z);
     }
 
-}
+    constructor(){
+    }
 
-class my_calculator extends calculator{
-
-}
-
-class test {
-    
     void main(){
 
 
+        int[] x = new int[3];
+        x[0] =7;
+        this.addition(1,2);
         if (1==1) {print(1);}
         else {
         print(2);
@@ -26,15 +42,27 @@ class test {
         int a;
         int b;
         int c;
-
+        
         
         a = 10;
         b = 40;
         c = 40/10;
 
-        class my_calculator obj = new my_calculator();
+        class calculator obj = new calculator();
         c = obj.addition(34,2);
+        obj.g =1;
 
-        print ("\n\n",c," constructor ok!\n");
+
+
+
+
+
+        print ("\n\n",x[0]," constructor ok!\n");
     } 
 }
+
+
+
+
+
+

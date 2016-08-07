@@ -1,0 +1,8 @@
+class arith {
+	void main() 
+	{
+		int i;
+		i = 1 + 3 * 4 % 7 - 4 / 2;
+		print(i);
+	}
+}

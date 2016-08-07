@@ -1,0 +1,1 @@
+Fatal error: exception Failure("Invalid type for arithmetic operator: char[]<->int")

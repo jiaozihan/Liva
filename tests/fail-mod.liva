@@ -1,0 +1,8 @@
+class arith {
+	void main() 
+	{
+		int i;
+		i = "4" % 3;
+		print(i);
+	}
+}

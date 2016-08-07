@@ -20,11 +20,11 @@ type expr =
 	| 	Assign of expr * expr
 	| 	Noexpr
 	| 	ArrayCreate of datatype * expr list
-	| 	ArrayAccess of expr * expr list
+	| 	ArrayAccess of expr * expr list	
 	| 	ObjAccess of expr * expr
 	| 	Call of string * expr list  
 	|   ObjectCreate of string * expr list
-	|  	Unop of op * expr
+	|  	Unop of op * expr	
 	| 	Null
 
 type stmt =

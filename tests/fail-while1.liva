@@ -2,12 +2,10 @@ class test {
 	void main() {
 	  int i;
 	  i = 5;
-	  while (i > 0) {
+	  while (i = 1) {
 	    print(i);
-	    if(i==3){
-	    	break;
-	    	}
 	    i = i - 1;
 	  }
+	  print(42);
 	}
 }
