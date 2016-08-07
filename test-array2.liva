@@ -1,0 +1,24 @@
+class test {
+	void main() {
+
+		
+		float[] a = new float[10];
+                a[0]=2.3;
+		float b;
+
+		b=a[0];
+		
+		
+		print(b);
+
+		print(a[0]);		
+		
+
+
+                
+		
+   
+		
+		
+	}
+}

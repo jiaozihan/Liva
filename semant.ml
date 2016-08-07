@@ -468,8 +468,30 @@ and exprl_to_sexprl env el = (*convert expression list to sexpression list*)
 			(assistant el), !env_ref
 
 (*TODO: Includes files,  now it process a  NUll inlcudes*)
-let process_includes reserved classess = classess
-
+let process_includes filename includes classes =
+	(* Bring in each include  *)
+	let processInclude include_statement = 
+		let file_in = open_in include_statement in
+		let lexbuf = Lexing.from_channel file_in in
+		let token_list = Processor.build_token_list lexbuf in
+		let program = Processor.parser include_statement token_list in
+		ignore(close_in file_in);
+		program
+	in
+	let rec iterate_includes classes m = function
+			[] -> classes
+		| (Include h) :: t -> 
+			let h = if h = "stdlib" then Conf.stdlib_path else h in
+			(* Check each include against the map *)
+			let realpath = Filepath.realpath h in
+			if StringMap.mem realpath m then 
+				iterate_includes (classes) (m) (t)
+			else 
+				let result = processInclude realpath in 
+				match result with Program(i,c) ->
+				iterate_includes (classes @ c) (StringMap.add realpath 1 m) (i @ t)
+	in
+	iterate_includes classes (StringMap.add (Filepath.realpath filename) 1 StringMap.empty) includes
 
 
 
@@ -1110,7 +1132,7 @@ in
 let check program = match program with 
 
 	Program (includes, classes) ->
- 	let cdecls = process_includes includes classes in 
+ 	let cdecls = process_includes filename includes classes in 
 	ignore (build_struct_indexes  cdecls);
 
 

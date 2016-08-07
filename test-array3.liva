@@ -1,0 +1,15 @@
+class test {
+	void main() {
+
+	int[] a = new int[10];
+	a[0]=1;
+
+        print(a[0],"\n");
+
+	a[0]=10;
+
+	print(a[0],"\n");
+	
+		
+	}
+}

@@ -1,0 +1,19 @@
+class shape {
+	int x;
+	int y;
+
+	constructor(int a, int b){
+	this.x = a;
+	this.y = b;
+	}
+
+}
+
+class test {
+	void main(char[][] args) {
+		class shape[] a = new class shape[5];
+		class shape b = new shape(2,3);
+		a[1] = b;
+		print(a[1].x);
+	}
+}
