@@ -1,0 +1,22 @@
+class myclass{
+    int a;
+    constructor(int x){
+        this.a = x;
+    }
+
+}
+
+class test {
+    void main(){
+
+        class myclass obj = new myclass(10);
+
+        print ("a=",obj.a);
+    } 
+}
+
+
+
+
+
+

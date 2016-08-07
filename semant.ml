@@ -385,11 +385,11 @@ and check_assign env e1 e2 =
 and check_unop env op e = 
 	let check_num_unop t = function(*operator for number*)
 		   Sub     -> t
-		|  _ as o  -> raise (Failure ("Invalid unary operation" ^ string_of_op o))
+		|  _ as o  -> raise (Failure ("Invalid unary operation: " ^ string_of_op o))
 	in 
 	let check_bool_unop = function(*operator for bool*)
 		   Not    -> Datatype(Bool_t)
-		|  _ as o -> raise (Failure ("Invalid unary operation" ^ string_of_op o))
+		|  _ as o -> raise (Failure ("Invalid unary operation: " ^ string_of_op o))
 	in
 	let se, env = expr_to_sexpr env e (*convert expression to sexpression*)
 	in

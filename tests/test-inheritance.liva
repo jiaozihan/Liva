@@ -1,0 +1,28 @@
+class myclass{
+    int a;
+    constructor(int x){
+        this.a = x;
+    }
+
+}
+
+class subclass extends myclass{
+    constructor(int x){
+        this.a = x;
+    } 
+}
+
+class test {
+    void main(){
+
+        class subclass obj = new subclass(10);
+
+        print ("a=",obj.a);
+    } 
+}
+
+
+
+
+
+

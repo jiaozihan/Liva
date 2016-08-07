@@ -1,0 +1,39 @@
+class myclass{
+    int a;
+    int calc (int x, int y){
+        int z;
+        z = x + y;
+        return (z);
+    }
+
+}
+
+class subclass extends myclass{
+
+    int calc (int x, int y){
+        int z;
+        z = x - y;
+        return (z);
+    }
+}
+
+class test {
+    void main(){
+        int x;
+        int y;
+        int z;
+        x = 9;
+        y = 6;
+
+        class subclass obj = new subclass();
+        z = obj.calc(x, y);
+
+        print ("z=",z);
+    } 
+}
+
+
+
+
+
+

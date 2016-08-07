@@ -1,0 +1,17 @@
+class myclass{
+}
+
+class test {
+    void main(){
+
+        class myclass obj = new myclass();
+
+        print ("obj\n");
+    } 
+}
+
+
+
+
+
+
