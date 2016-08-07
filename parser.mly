@@ -1,6 +1,6 @@
 %{  open Ast  %}
 
-%token CLASS EXTENDS CONSTRUCTOR IMPORT DOT THIS 
+%token CLASS EXTENDS CONSTRUCTOR DOT THIS 
 %token INT FLOAT BOOLEAN CHAR VOID NULL TRUE FALSE
 %token SEMI LPAREN RPAREN LBRACE RBRACE LBRACKET RBRACKET COMMA
 %token AND NOT OR PLUS MINUS TIMES DIVIDE ASSIGN MODULO
@@ -32,22 +32,8 @@
 %%
 
 program:
-		includes cdecls EOF { Program($1, $2) }
+		cdecls EOF { Program($1) }
 
-/******************
-	IMPORT
-******************/
-
-includes:
-		/* nothing */ { [] }
-  	| 	include_list  { List.rev $1 }
-
-include_list:
-    	include_decl              { [$1] }
-  	| 	include_list include_decl { $2::$1 }
-
-include_decl:
-	IMPORT LPAREN STRING_LITERAL RPAREN SEMI { Import($3) }
 
 
 /******************

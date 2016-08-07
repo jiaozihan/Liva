@@ -468,12 +468,6 @@ and exprl_to_sexprl env el = (*convert expression list to sexpression list*)
 		in
 			(assistant el), !env_ref
 
-(*TODO: Includes files,  now it process a  NUll inlcudes*)
-let process_includes  includes classes = classes
-	
-
-
-
 
 
 
@@ -1110,8 +1104,8 @@ in
 
 let check program = match program with 
 
-	Program (includes, classes) ->
- 	let cdecls = process_includes includes classes in 
+	Program (classes) ->
+ 	let cdecls = classes in 
 	ignore (build_struct_indexes  cdecls);
 
 

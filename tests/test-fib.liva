@@ -1,0 +1,25 @@
+class test {
+
+	int fib (int x){
+        int z;
+        if (x <2) z=1;
+	else z= this.fib(x-1) + this.fib(x-2);
+        return (z);
+        }
+    
+    void main(){
+        int x;
+        int y;
+        int z;
+	int m;
+        x = 5;
+        y = 6;
+        z = this.fib (x);
+	
+	print (z);
+        
+
+        
+    } 
+}
+
