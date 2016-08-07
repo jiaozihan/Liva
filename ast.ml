@@ -39,7 +39,6 @@ type stmt =
 	|       Local of datatype * string * expr
 
 type field = Field of datatype * string
-type import_stmt = Import of string
 
 type func_decl = {
 	fname : fname;
@@ -63,7 +62,7 @@ type class_decl = {
 	cbody: cbody;
 }
 
-type program = Program of import_stmt list * class_decl list
+type program = Program of class_decl list
 
 (*get function name,tell constructor from ordinary functions*)
 let string_of_fname = function

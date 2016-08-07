@@ -73,7 +73,6 @@ rule token = parse
   | "class"       { CLASS }
   | "constructor" { CONSTRUCTOR }
   | "extends"     { EXTENDS }
-  | "import"     { IMPORT }
   | "this"        { THIS }
   | "break" 	  { BREAK }
   | "continue"	  { CONTINUE }
