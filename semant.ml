@@ -235,7 +235,7 @@ and check_obj_access env lhs rhs =
 		   This 	-> SId("this", Datatype(Objecttype(env.env_name)))
 		|  Id s 	-> SId(s, get_ID_type env s)
 		|  ArrayAccess(e, el)	-> check_array_access env e el
-		|  _ as e 	-> raise (Failure ("LHS of object access must be an instance of certain class"))
+		|  _ as e 	-> raise (Failure ("LHS of object access must be an instance of certain class: " ^ string_of_expr e))
 	in
 
 	let get_cname lhs_datatyp = match lhs_datatyp with (*get the type of the expression before ‘.’, i.e. class name*)
@@ -291,7 +291,7 @@ and check_call_type env fname el =
 			in
 				if ftyp = ptyp
 					then param
-				else raise (Failure ("Incompatible type for function: " ^ fname ^ "  " ^ string_of_datatype ptyp ^ " -> " ^ string_of_datatype ftyp))
+				else raise (Failure ("Incompatible type for function: " ^ string_of_datatype ptyp ^ " -> " ^ string_of_datatype ftyp ^ " expected for function " ^ fname))
 		in
 
 
