@@ -230,12 +230,13 @@ and check_array_access env e el =
 							in SArrayAccess(se, sel, sexpr_type)
 
 and check_obj_access env lhs rhs =
-	let check_lhs =
-		function(*check the expression before ‘.’ and get sexpression*)
-			   This 			-> SId("this", Datatype(Objecttype(env.env_name)))
-			|  Id s 			-> SId(s, get_ID_type env s)
-			|  _ as e 	        -> raise (Failure ("LHS of object access must be an instance of certain class: " ^ string_of_expr e))
+
+	let check_lhs = function(*check the expression before ‘.’ and get sexpression*)
+		   This 	-> SId("this", Datatype(Objecttype(env.env_name)))
+		|  Id s 	-> SId(s, get_ID_type env s)
+		|  _ as e 	-> raise (Failure ("LHS of object access must be an instance of certain class: " ^ string_of_expr e))
 	in
+
 	let get_cname lhs_datatyp = match lhs_datatyp with (*get the type of the expression before ‘.’, i.e. class name*)
 			Datatype(Objecttype(name)) 	-> name
 		| 	_ as d						-> raise (Failure ("Object access must have ObjectType: " ^ string_of_datatype d))
@@ -256,19 +257,21 @@ and check_obj_access env lhs rhs =
 				|  Call(fname, el) -> let env = update_env_name env class_name (* Check functions*)
 									  in check_call_type env fname el, env
 				|  _ as e		   -> raise (Failure ("Invalid object access: " ^ string_of_expr e))
-	in 
-		let s_lhs = check_lhs lhs
-		in
-			let s_lhs_type = get_type_from_sexpr s_lhs
-			in 
-				let l_cname = get_cname s_lhs_type
-				in
-					let lhs_env = update_env_name env l_cname
-					in
-						let s_rhs, _ = check_rhs lhs_env s_lhs_type rhs
-						in
-							let s_rhs_type = get_type_from_sexpr s_rhs
-							in SObjAccess(s_lhs, s_rhs, s_rhs_type)
+	in
+
+	let s_lhs = check_lhs lhs in
+		
+	let s_lhs_type = get_type_from_sexpr s_lhs in 
+	
+	let l_cname = get_cname s_lhs_type in
+			
+	let lhs_env = update_env_name env l_cname in
+	
+	let s_rhs, _ = check_rhs lhs_env s_lhs_type (*env*) rhs in
+	
+	let s_rhs_type = get_type_from_sexpr s_rhs in 
+
+	SObjAccess(s_lhs, s_rhs, s_rhs_type)
 
 and check_call_type env fname el =
 	let sel, env = exprl_to_sexprl env el(*convert expression list to sexpression list*)
@@ -276,23 +279,25 @@ and check_call_type env fname el =
 		let cmap = try StringMap.find env.env_name env.env_class_maps (*check whether the class has been defined*)
 				   with | Not_found -> raise (Failure ("Undefined class: " ^ env.env_name))
 		in(*check type*)
-			let check_pa_onebyone formal param = (*check parameter according to type*)
-				let ftyp = match formal with
-					  Formal(d, _) -> d
-					| _            -> Datatype(Void_t)
-				in
-					let ptyp = get_type_from_sexpr param(*get the type of actual parameter*)
-					in
-						if ftyp = ptyp
-							then param
-						else raise (Failure ("Incompatible type for function: " ^ string_of_datatype ptyp ^ " -> " ^ string_of_datatype ftyp ^ " expected for function " ^ fname))
+		
+		let check_pa_onebyone formal param = (*check parameter according to type*)
+			let ftyp = match formal with
+				Formal(d, _) -> d
+				| _            -> Datatype(Void_t)
 			in
+			
+			let ptyp = get_type_from_sexpr param(*get the type of actual parameter*)
+			in
+				if ftyp = ptyp
+					then param
+				else raise (Failure ("Incompatible type for function: " ^ string_of_datatype ptyp ^ " -> " ^ string_of_datatype ftyp ^ " expected for function " ^ fname))
+		in
 
 
-			let get_index fdecl fname =
-				let cdecl = cmap.cdecl in
+		let get_index fdecl fname =
+			let cdecl = cmap.cdecl in
 
-				let fns = List.rev cdecl.cbody.methods in
+			let fns = List.rev cdecl.cbody.methods in
 				let rec find x lst =
 				    match lst with
 				    | [] -> raise (Failure ("Could not find " ^ fname))
@@ -303,50 +308,57 @@ and check_call_type env fname el =
 				    	else 1 + find x t
 				in
 				find fname fns
+		in
+
+
+
+
+
+		let check_params formals params = match formals, params with (*check parameter according to amount*)
+			[Many(Any)], _ -> params
+			| [], []         -> []
+			| _              -> if List.length formals <> List.length params
+									then raise (Failure ("Incorrect argument number for function: " ^ fname))
+								else List.map2 check_pa_onebyone formals sel
+		in
+		try
+			let func = StringMap.find fname cmap.reserved_functions_map
 			in
-
-
-
-
-
-				let check_params formals params = match formals, params with (*check parameter according to amount*)
-														  [Many(Any)], _ -> params
-														| [], []         -> []
-														| _              -> if List.length formals <> List.length params
-																				then raise (Failure ("Incorrect argument number for function: " ^ fname))
-																			else List.map2 check_pa_onebyone formals sel
-				in
-					try
-						let func = StringMap.find fname cmap.reserved_functions_map
-						in
-							let actuals = check_params func.sformals sel
-							in SCall(fname, actuals, func.sreturnType,0)
-					with | Not_found -> let sfname = env.env_name ^ "." ^ fname
-										in
-											try let f = StringMap.find sfname cmap.func_map
-												in
-													let actuals = check_params f.formals sel in
-													let index = get_index f sfname in
-													SCall(sfname, actuals, f.returnType, index)
-											with | Not_found -> raise (Failure ("Function is not found: " ^ sfname))
+			let actuals = check_params func.sformals sel
+			in SCall(fname, actuals, func.sreturnType,0)
+		with | Not_found -> let sfname = env.env_name ^ "." ^ fname
+in
+	try let f = StringMap.find sfname cmap.func_map
+		in
+		let actuals = check_params f.formals sel in
+		let index = get_index f sfname in
+		SCall(sfname, actuals, f.returnType, index)
+	with | Not_found -> raise (Failure ("Function is not found: " ^ sfname))
 
 and check_object_constructor env s el =
 	let sel, env = exprl_to_sexprl env el
 	in
-		let cmap = try StringMap.find s env.env_class_maps(*find the class*)
-				   with | Not_found -> raise (Failure ("Undefined class: " ^ s))
-		in
-			let params = List.fold_left (fun s e -> s ^ "." ^ (string_of_datatype (get_type_from_sexpr e))) "" sel
-			in
-				let constructor_name = s ^ "." ^ "constructor" ^ params
-				in
-					let _ = try StringMap.find constructor_name cmap.constructor_map(*find constructor with type check*)
-							with  | Not_found -> raise (Failure ("Constructor is not found: " ^ constructor_name))
+	
+	let cmap = try StringMap.find s env.env_class_maps(*find the class*)
+				with | Not_found -> raise (Failure ("Undefined class: " ^ s))
+	in
+	
+	let params = List.fold_left 
+		(fun s e -> s ^ "." ^ (string_of_datatype (get_type_from_sexpr e))) "" sel
+	in
+				
+	let constructor_name = s ^ "." ^ "constructor" ^ params
+	in
+					
+	let _ = 
+		try StringMap.find constructor_name cmap.constructor_map(*find constructor with type check*)
+		with  | Not_found -> raise (Failure ("Constructor is not found: " ^ constructor_name))
 					(*let _ = raise(Failure("" ^ constructor_name))*)
-					in
-						let obtyp = Datatype(Objecttype(s))
-						in
-							SObjectCreate(constructor_name, sel, obtyp)
+	in
+	
+	let obtyp = Datatype(Objecttype(s)) in
+
+	SObjectCreate(constructor_name, sel, obtyp)
 
 and check_assign env e1 e2 =
 	let se1, env = expr_to_sexpr env e1(*convert expression to sexpression*)
@@ -357,17 +369,18 @@ and check_assign env e1 e2 =
 	in
 	let type2 = get_type_from_sexpr se2
 	in 
-		match (type1, se2) with
-			  Datatype(Objecttype(_)), SNull -> SAssign(se1, se2, type1)
-			| _                              -> 
-												match type1, type2 with
-													  Datatype(Objecttype(d)), Datatype(Objecttype(t)) ->
-															if d = t 
-																then SAssign(se1, se2, type1)
-															else raise (Failure ("Assignment types are mismatched: " ^ string_of_datatype type1 ^ " <-> " ^ string_of_datatype type2))
-													|  _ -> if type1 = type2 
-															then SAssign(se1, se2, type1)
-															else raise (Failure ("Assignment types are mismatched: " ^ string_of_datatype type1 ^ " <-> " ^ string_of_datatype type2))
+	
+	match (type1, se2) with
+		 Datatype(Objecttype(_)), SNull -> SAssign(se1, se2, type1)
+		| _  -> 
+			match type1, type2 with
+				 Datatype(Objecttype(d)), Datatype(Objecttype(t)) ->
+						if d = t 
+							then SAssign(se1, se2, type1)
+						else raise (Failure ("Assignment types are mismatched: " ^ string_of_datatype type1 ^ " <-> " ^ string_of_datatype type2))
+				|  _ -> if type1 = type2 
+						then SAssign(se1, se2, type1)
+						else raise (Failure ("Assignment types are mismatched: " ^ string_of_datatype type1 ^ " <-> " ^ string_of_datatype type2))
 
 and check_unop env op e = 
 	let check_num_unop t = function(*operator for number*)
@@ -438,7 +451,7 @@ and get_type_from_sexpr = function(*get the type of sexpression*)
 | 	SObjAccess(_, _, d)		-> d
 | 	SCall(_, _, d,_)		-> d
 |   SObjectCreate(_, _, d) 	-> d
-| 	SArrayPrimitive(_, d)	-> d
+| 	SArrayElements(_, d)	-> d
 |  	SUnop(_, _, d) 			-> d
 | 	SNull					-> Datatype(Null_t)
 
@@ -469,7 +482,7 @@ let store_reserved_functions =
 	let i32_t = Datatype(Int_t) and 
 	    void_t = Datatype(Void_t) and
 	    str_t = Arraytype( Char_t, 1) in 
-	let m t s = Formal(t, s) in
+	let mf t s = Formal(t, s) in
 	let reserved_stub fname return_type formals = 
 	    { 
 	    	sfname = FName (fname);
@@ -484,7 +497,9 @@ let store_reserved_functions =
 
 	let reserved_functions =[
 
-		reserved_stub "print" (void_t) ([Many(Any)])
+		reserved_stub "print" (void_t) ([Many(Any)]);
+		reserved_stub "malloc" 	(str_t) 	([mf i32_t "size"]);
+		reserved_stub "cast" 	(Any) 		([mf Any "in"]);
 
 		]
 
@@ -537,7 +552,8 @@ let build_class_maps reserved_functions cdecls =
 				then raise (Failure ("DuplicateConstructor"))(*exception:DuplicateConstructor*)
 			else if List.length condecl = 0 (*default constructor*)
 				then StringMap.add (get_constructor_name cdecl.cname default_c) default_c StringMap.empty
-			else StringMap.add (get_constructor_name cdecl.cname (List.hd condecl)) (List.hd condecl) StringMap.empty
+			else
+				StringMap.add (get_constructor_name cdecl.cname (List.hd condecl)) (List.hd condecl) StringMap.empty
 
 		in
 					
@@ -893,8 +909,48 @@ and  check_stmt env = function
 	| 	If(e, s1, s2) 		-> check_if_stmt e s1 s2	env
 	|   While( e, s) 	-> check_while_stmt e s env
 	| 	For(e1, e2, e3, e4) 	-> check_for_stmt e1 e2 e3 e4 env
-	|  	Break 				-> SBreak, env 
-	|       Continue 			-> SContinue, env 
+
+
+
+
+
+and append_code_to_main fbody cname ret_type = 
+	let key = Hashtbl.find struct_indexes cname in 
+	let init_this = [SLocal(
+		ret_type,
+		"this",
+		SCall(	"cast", 
+				[SCall("malloc", 
+					[	
+						SCall("sizeof", [SId("ignore", ret_type)], Datatype(Int_t), 0)
+					], 
+					Arraytype(Char_t, 1), 0)
+				],
+				ret_type, 0
+			)
+		);
+		SExpr(
+			SAssign(
+				SObjAccess(
+					SId("this", ret_type),
+					SId(".key", Datatype(Int_t)),
+					Datatype(Int_t)
+				),
+				SInt_Lit(key),
+				Datatype(Int_t)
+			),
+			Datatype(Int_t)
+		)
+	]
+	in 
+	init_this @ fbody
+
+
+
+
+
+
+
 
 and  convert_stmt_list_to_sstmt_list env stmt_list =
 	let env_ref = ref(env)
@@ -927,12 +983,12 @@ let convert_constructor_to_sfdecl class_maps reserved class_map cname constructo
 				sfname 		= Ast.FName(get_constructor_name cname constructor);
 				sreturnType = Datatype(Objecttype(cname));
 				sformals 	= constructor.formals;
-				sbody 		= fbody; (*TODO*)
+				sbody 		= append_code_to_constructor fbody cname (Datatype(Objecttype(cname)));
 				func_type	= Sast.User;
 				overrides 	= false;
 				source 		= "NA";
 			}
-
+(*)
 let check_fbody fname fbody returnType =
 	let len = List.length fbody in
 	if len = 0 then () else 
@@ -941,14 +997,22 @@ let check_fbody fname fbody returnType =
 		Datatype(Void_t), _ -> ()
 	| 	_, SReturn(_, _) -> ()
 	| 	_ -> raise(Failure ("AllNonVoidFunctionsMustEndWithReturn"))
-
+*)
 
 let convert_fdecl_to_sfdecl class_maps reserved class_map cname fdecl=
 
-	let root_cname = cname in
-	let class_formal = Ast.Formal(Datatype(Objecttype(cname)), "this")
+	let root_cname = match fdecl.root_cname with 
+        Some(x) -> x
+        | None -> cname
+    in
 
-	in 
+    let class_formal = 
+    	if fdecl.overrides then 
+    		Ast.Formal(Datatype(Objecttype(root_cname)), "this")
+    	else 
+    		Ast.Formal(Datatype(Objecttype(cname)), "this")
+    in
+
 	let env_param_helper m fname = match fname with 
 			Formal(d, s) -> (StringMap.add s fname m) 
 		| 	_ -> m
@@ -972,7 +1036,7 @@ let convert_fdecl_to_sfdecl class_maps reserved class_map cname fdecl=
 	(*ignore(check_fbody fname fbody fdecl.returnType);*)
 	
 	let fbody = if fname = "main" 
-		then fbody (*TODO*) 
+		then (append_code_to_main fbody cname (Datatype(Objecttype(cname)))) 
 		else fbody 
 	in
 	(* We add the class as the first parameter to the function for codegen *)

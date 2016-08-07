@@ -20,11 +20,11 @@ type expr =
 	| 	Assign of expr * expr
 	| 	Noexpr
 	| 	ArrayCreate of datatype * expr list
-	| 	ArrayAccess of expr * expr list
+	| 	ArrayAccess of expr * expr list	
 	| 	ObjAccess of expr * expr
 	| 	Call of string * expr list  
 	|   ObjectCreate of string * expr list
-	|  	Unop of op * expr
+	|  	Unop of op * expr	
 	| 	Null
 
 type stmt =
@@ -86,6 +86,20 @@ let string_of_object = function
 		Datatype(Objecttype(s))	-> s
 	| 	_ -> ""
 
+
+
+
+let rec print_brackets = function
+		1 -> "[]"
+	| 	a -> "[]" ^ print_brackets (a - 1)
+
+let string_of_expr e = "remain to be completed"
+
+let string_of_datatype = function (*datatype*)
+		Arraytype(p, i)	-> (string_of_primitive p) ^ (print_brackets i)
+	| 	Datatype(p)		-> (string_of_primitive p)
+	|  	Any 			-> "Any"
+	
 let string_of_op = function(*operator*)
 		Add			-> "+"	
 	 | 	Sub			-> "-"	
@@ -103,25 +117,9 @@ let string_of_op = function(*operator*)
 	 | 	Mod 		-> "%"
 
 
-let rec print_brackets = function
-		1 -> "[]"
-	| 	a -> "[]" ^ print_brackets (a - 1)
-	
-let string_of_expr e = "no implimented"
-
-
-let string_of_datatype = function (*datatype*)
-		Arraytype(p, i)	-> (string_of_primitive p) ^ (print_brackets i)
-	| 	Datatype(p)		-> (string_of_primitive p)
-	|  	Any 			-> "Any"
-	
-
-
-
 let string_of_boolean b = match b with
 	  true -> "true"
 	| false -> "false"
-	
 
 
 

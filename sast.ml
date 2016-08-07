@@ -15,7 +15,7 @@ type sexpr =
 	| 	SObjAccess of sexpr * sexpr * datatype
 	| 	SCall of string * sexpr list * datatype * int
 	|   SObjectCreate of string * sexpr list * datatype
-	| 	SArrayPrimitive of sexpr list * datatype
+	| 	SArrayElements of sexpr list * datatype
 	|  	SUnop of op * sexpr * datatype
 	| 	SNull
 	| 	SDelete of sexpr
@@ -79,13 +79,18 @@ let rec string_of_sexpr = function
 	|   SObjectCreate(s, el, _) 	-> "new " ^ s ^ "(" ^ String.concat ", " (List.map string_of_sexpr el) ^ ")"
 	| 	SDelete(e) 					-> "delete (" ^ (string_of_sexpr e) ^ ")"
 
+	|   SArrayCreate(d, el, _)  	-> "new " ^ string_of_datatype d ^ string_of_bracket_sexpr el
+	|   SArrayAccess(e, el, _)  	-> (string_of_sexpr e) ^ (string_of_bracket_sexpr el)
+	|	SArrayElements(el, _)		-> "{" ^ (string_of_sarray_primitive el) ^ "}"
 
+and string_of_bracket_sexpr = function
+		[] 				-> ""
+	| 	head :: tail 	-> "[" ^ (string_of_sexpr head) ^ "]" ^ (string_of_bracket_sexpr tail)
 
-
-
-
-
-
+and string_of_sarray_primitive = function
+		[] 				-> ""
+	|   [last]			-> (string_of_sexpr last)
+	| 	head :: tail 	-> (string_of_sexpr head) ^ ", " ^ (string_of_sarray_primitive tail)
 
 
 
