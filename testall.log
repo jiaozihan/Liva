@@ -1,0 +1,234 @@
+/usr/local/opt/llvm/bin/lli
+
+###### Testing test-add
+./liva < tests/test-add.liva > test-add.ll
+lli test-add.ll > test-add.out
+diff -b test-add.out tests/test-add.out > test-add.diff
+###### SUCCESS
+
+###### Testing test-and
+./liva < tests/test-and.liva > test-and.ll
+lli test-and.ll > test-and.out
+diff -b test-and.out tests/test-and.out > test-and.diff
+###### SUCCESS
+
+###### Testing test-arith
+./liva < tests/test-arith.liva > test-arith.ll
+lli test-arith.ll > test-arith.out
+diff -b test-arith.out tests/test-arith.out > test-arith.diff
+###### SUCCESS
+
+###### Testing test-constructor
+./liva < tests/test-constructor.liva > test-constructor.ll
+lli test-constructor.ll > test-constructor.out
+diff -b test-constructor.out tests/test-constructor.out > test-constructor.diff
+###### SUCCESS
+
+###### Testing test-diff
+./liva < tests/test-diff.liva > test-diff.ll
+lli test-diff.ll > test-diff.out
+diff -b test-diff.out tests/test-diff.out > test-diff.diff
+###### SUCCESS
+
+###### Testing test-div
+./liva < tests/test-div.liva > test-div.ll
+lli test-div.ll > test-div.out
+diff -b test-div.out tests/test-div.out > test-div.diff
+###### SUCCESS
+
+###### Testing test-equal
+./liva < tests/test-equal.liva > test-equal.ll
+lli test-equal.ll > test-equal.out
+diff -b test-equal.out tests/test-equal.out > test-equal.diff
+###### SUCCESS
+
+###### Testing test-for1
+./liva < tests/test-for1.liva > test-for1.ll
+lli test-for1.ll > test-for1.out
+diff -b test-for1.out tests/test-for1.out > test-for1.diff
+###### SUCCESS
+
+###### Testing test-geq
+./liva < tests/test-geq.liva > test-geq.ll
+lli test-geq.ll > test-geq.out
+diff -b test-geq.out tests/test-geq.out > test-geq.diff
+###### SUCCESS
+
+###### Testing test-gt
+./liva < tests/test-gt.liva > test-gt.ll
+lli test-gt.ll > test-gt.out
+diff -b test-gt.out tests/test-gt.out > test-gt.diff
+###### SUCCESS
+
+###### Testing test-hello
+./liva < tests/test-hello.liva > test-hello.ll
+lli test-hello.ll > test-hello.out
+diff -b test-hello.out tests/test-hello.out > test-hello.diff
+###### SUCCESS
+
+###### Testing test-hello2
+./liva < tests/test-hello2.liva > test-hello2.ll
+lli test-hello2.ll > test-hello2.out
+diff -b test-hello2.out tests/test-hello2.out > test-hello2.diff
+###### SUCCESS
+
+###### Testing test-if1
+./liva < tests/test-if1.liva > test-if1.ll
+lli test-if1.ll > test-if1.out
+diff -b test-if1.out tests/test-if1.out > test-if1.diff
+###### SUCCESS
+
+###### Testing test-if_nest
+./liva < tests/test-if_nest.liva > test-if_nest.ll
+lli test-if_nest.ll > test-if_nest.out
+diff -b test-if_nest.out tests/test-if_nest.out > test-if_nest.diff
+###### SUCCESS
+
+###### Testing test-inheritance
+./liva < tests/test-inheritance.liva > test-inheritance.ll
+lli test-inheritance.ll > test-inheritance.out
+diff -b test-inheritance.out tests/test-inheritance.out > test-inheritance.diff
+###### SUCCESS
+
+###### Testing test-leq
+./liva < tests/test-leq.liva > test-leq.ll
+lli test-leq.ll > test-leq.out
+diff -b test-leq.out tests/test-leq.out > test-leq.diff
+###### SUCCESS
+
+###### Testing test-lt
+./liva < tests/test-lt.liva > test-lt.ll
+lli test-lt.ll > test-lt.out
+diff -b test-lt.out tests/test-lt.out > test-lt.diff
+###### SUCCESS
+
+###### Testing test-mod
+./liva < tests/test-mod.liva > test-mod.ll
+lli test-mod.ll > test-mod.out
+diff -b test-mod.out tests/test-mod.out > test-mod.diff
+###### SUCCESS
+
+###### Testing test-mul
+./liva < tests/test-mul.liva > test-mul.ll
+lli test-mul.ll > test-mul.out
+diff -b test-mul.out tests/test-mul.out > test-mul.diff
+###### SUCCESS
+
+###### Testing test-nequal
+./liva < tests/test-nequal.liva > test-nequal.ll
+lli test-nequal.ll > test-nequal.out
+diff -b test-nequal.out tests/test-nequal.out > test-nequal.diff
+###### SUCCESS
+
+###### Testing test-not
+./liva < tests/test-not.liva > test-not.ll
+lli test-not.ll > test-not.out
+diff -b test-not.out tests/test-not.out > test-not.diff
+###### SUCCESS
+
+###### Testing test-obj
+./liva < tests/test-obj.liva > test-obj.ll
+lli test-obj.ll > test-obj.out
+diff -b test-obj.out tests/test-obj.out > test-obj.diff
+###### SUCCESS
+
+###### Testing test-or
+./liva < tests/test-or.liva > test-or.ll
+lli test-or.ll > test-or.out
+diff -b test-or.out tests/test-or.out > test-or.diff
+###### SUCCESS
+
+###### Testing test-override
+./liva < tests/test-override.liva > test-override.ll
+lli test-override.ll > test-override.out
+diff -b test-override.out tests/test-override.out > test-override.diff
+###### SUCCESS
+
+###### Testing test-string
+./liva < tests/test-string.liva > test-string.ll
+lli test-string.ll > test-string.out
+diff -b test-string.out tests/test-string.out > test-string.diff
+FAILED test-string.out differs from tests/test-string.out
+###### FAILED
+
+###### Testing test-sub
+./liva < tests/test-sub.liva > test-sub.ll
+lli test-sub.ll > test-sub.out
+diff -b test-sub.out tests/test-sub.out > test-sub.diff
+###### SUCCESS
+
+###### Testing test-while1
+./liva < tests/test-while1.liva > test-while1.ll
+lli test-while1.ll > test-while1.out
+diff -b test-while1.out tests/test-while1.out > test-while1.diff
+###### SUCCESS
+
+###### Testing fail-add
+./liva < tests/fail-add.liva 2> fail-add.err >> testall.log
+diff -b fail-add.err tests/fail-add.err > fail-add.diff
+###### SUCCESS
+
+###### Testing fail-diff
+./liva < tests/fail-diff.liva 2> fail-diff.err >> testall.log
+diff -b fail-diff.err tests/fail-diff.err > fail-diff.diff
+###### SUCCESS
+
+###### Testing fail-div
+./liva < tests/fail-div.liva 2> fail-div.err >> testall.log
+diff -b fail-div.err tests/fail-div.err > fail-div.diff
+###### SUCCESS
+
+###### Testing fail-equal1
+./liva < tests/fail-equal1.liva 2> fail-equal1.err >> testall.log
+diff -b fail-equal1.err tests/fail-equal1.err > fail-equal1.diff
+###### SUCCESS
+
+###### Testing fail-equal2
+./liva < tests/fail-equal2.liva 2> fail-equal2.err >> testall.log
+diff -b fail-equal2.err tests/fail-equal2.err > fail-equal2.diff
+###### SUCCESS
+
+###### Testing fail-for1
+./liva < tests/fail-for1.liva 2> fail-for1.err >> testall.log
+diff -b fail-for1.err tests/fail-for1.err > fail-for1.diff
+###### SUCCESS
+
+###### Testing fail-hello
+./liva < tests/fail-hello.liva 2> fail-hello.err >> testall.log
+diff -b fail-hello.err tests/fail-hello.err > fail-hello.diff
+###### SUCCESS
+
+###### Testing fail-hello2
+./liva < tests/fail-hello2.liva 2> fail-hello2.err >> testall.log
+diff -b fail-hello2.err tests/fail-hello2.err > fail-hello2.diff
+###### SUCCESS
+
+###### Testing fail-if1
+./liva < tests/fail-if1.liva 2> fail-if1.err >> testall.log
+diff -b fail-if1.err tests/fail-if1.err > fail-if1.diff
+###### SUCCESS
+
+###### Testing fail-mod
+./liva < tests/fail-mod.liva 2> fail-mod.err >> testall.log
+diff -b fail-mod.err tests/fail-mod.err > fail-mod.diff
+###### SUCCESS
+
+###### Testing fail-mul
+./liva < tests/fail-mul.liva 2> fail-mul.err >> testall.log
+diff -b fail-mul.err tests/fail-mul.err > fail-mul.diff
+###### SUCCESS
+
+###### Testing fail-not
+./liva < tests/fail-not.liva 2> fail-not.err >> testall.log
+diff -b fail-not.err tests/fail-not.err > fail-not.diff
+###### SUCCESS
+
+###### Testing fail-sub
+./liva < tests/fail-sub.liva 2> fail-sub.err >> testall.log
+diff -b fail-sub.err tests/fail-sub.err > fail-sub.diff
+###### SUCCESS
+
+###### Testing fail-while1
+./liva < tests/fail-while1.liva 2> fail-while1.err >> testall.log
+diff -b fail-while1.err tests/fail-while1.err > fail-while1.diff
+###### SUCCESS
