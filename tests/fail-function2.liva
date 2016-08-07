@@ -1,0 +1,34 @@
+class myclass{
+
+    int calc (int x, int y){
+
+        int z;
+        z = x + y;
+        return (z);
+    }
+}
+
+class test {
+
+    void main(){
+        int x = 9;
+		int y = 6;
+        int z;
+
+        class myclass obj = new myclass();
+        z = obj.calc(x, x, y);
+
+        print ("z=",z);
+    } 
+}
+
+
+
+
+
+
+
+
+
+
+
