@@ -1,0 +1,18 @@
+class calculator{
+    int g;
+    int addition(int x, int y){    
+        this.g =9;
+        int z;
+        z = x + y;
+        return(z);
+    }
+}
+
+class test {
+	void main() {
+		class calculator c = new calculator();
+		class calculator[] a = new class calculator[10];
+		a[0] = c;
+		print(a[0].addition(1,1));
+	}
+}

@@ -234,6 +234,7 @@ and check_obj_access env lhs rhs =
 	let check_lhs = function(*check the expression before ‘.’ and get sexpression*)
 		   This 	-> SId("this", Datatype(Objecttype(env.env_name)))
 		|  Id s 	-> SId(s, get_ID_type env s)
+		|  ArrayAccess(e, el)	-> check_array_access env e el
 		|  _ as e 	-> raise (Failure ("LHS of object access must be an instance of certain class: " ^ string_of_expr e))
 	in
 

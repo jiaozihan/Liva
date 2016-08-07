@@ -591,7 +591,7 @@ and codegen_obj_access isAssign lhs rhs d llbuilder =
 
 	let check_lhs = function
 		SId(s, d)				-> codegen_id false false s d llbuilder
-	(*| 	SArrayAccess(e, el, d)	-> codegen_array_access false e el d llbuilder*)
+		| 	SArrayAccess(e, el, d)	-> codegen_array_access false e el d llbuilder
 		| se -> raise (Failure("check lhd error"))
 	in
 	(* Needs to be changed *)
