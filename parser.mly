@@ -5,7 +5,7 @@
 %token SEMI LPAREN RPAREN LBRACE RBRACE LBRACKET RBRACKET COMMA
 %token AND NOT OR PLUS MINUS TIMES DIVIDE ASSIGN MODULO
 %token EQ NEQ LT LEQ GT GEQ
-%token RETURN IF ELSE FOR WHILE BREAK CONTINUE NEW 
+%token RETURN IF ELSE FOR WHILE NEW 
 %token <int> INT_LITERAL
 %token <float> FLOAT_LITERAL
 %token <string> STRING_LITERAL
@@ -94,7 +94,7 @@ constructor:
 			formals = $3;
 			body = List.rev $6;
 			overrides = false;
-            root_cname = None;		
+            rootcname = None;		
 			
         
 		}
@@ -127,7 +127,7 @@ fdecl:
 			formals = $4;
 			body = List.rev $7;
 			overrides = false;
-            root_cname = None;		
+            rootcname = None;		
             
 		} 
 	}

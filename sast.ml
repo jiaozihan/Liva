@@ -19,6 +19,7 @@ type sexpr =
 	|  	SUnop of op * sexpr * datatype
 	| 	SNull
 
+
 type sstmt =
 		SBlock of sstmt list
 	| 	SExpr of sexpr * datatype
@@ -35,7 +36,7 @@ type sfunc_decl = {
 	sreturnType : datatype;
 	sformals : formal list;
 	sbody : sstmt list;
-	func_type : func_type;
+	functype : func_type;
 	source : string;
 	overrides : bool;
 }
