@@ -18,7 +18,7 @@ type sexpr =
 	| 	SArrayElements of sexpr list * datatype
 	|  	SUnop of op * sexpr * datatype
 	| 	SNull
-	| 	SDelete of sexpr
+
 
 type sstmt =
 		SBlock of sstmt list
@@ -27,8 +27,6 @@ type sstmt =
 	| 	SIf of sexpr * sstmt * sstmt
 	| 	SFor of sexpr * sexpr * sexpr * sstmt
 	| 	SWhile of sexpr * sstmt
-	|  	SBreak
-	|       SContinue
 	|       SLocal of datatype * string * sexpr
 
 type func_type = User | Reserved
@@ -38,7 +36,7 @@ type sfunc_decl = {
 	sreturnType : datatype;
 	sformals : formal list;
 	sbody : sstmt list;
-	func_type : func_type;
+	functype : func_type;
 	source : string;
 	overrides : bool;
 }
@@ -77,7 +75,6 @@ let rec string_of_sexpr = function
 	(*todo*)
 	(*to do*)
 	|   SObjectCreate(s, el, _) 	-> "new " ^ s ^ "(" ^ String.concat ", " (List.map string_of_sexpr el) ^ ")"
-	| 	SDelete(e) 					-> "delete (" ^ (string_of_sexpr e) ^ ")"
 
 	|   SArrayCreate(d, el, _)  	-> "new " ^ string_of_datatype d ^ string_of_bracket_sexpr el
 	|   SArrayAccess(e, el, _)  	-> (string_of_sexpr e) ^ (string_of_bracket_sexpr el)

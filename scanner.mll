@@ -74,8 +74,6 @@ rule token = parse
   | "constructor" { CONSTRUCTOR }
   | "extends"     { EXTENDS }
   | "this"        { THIS }
-  | "break" 	  { BREAK }
-  | "continue"	  { CONTINUE }
   | "new" 	   	  { NEW }
   
   | int as lxm          { INT_LITERAL(int_of_string lxm) }

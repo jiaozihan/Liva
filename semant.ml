@@ -116,7 +116,7 @@ let check program =
 				sfname = FName (fname);
 				sreturnType = returnType;
 				sformals= formals;	
-				func_type= Sast.Reserved;
+				functype= Sast.Reserved;
 				sbody=[];
 				overrides 		= false;
 				source= "NA"
@@ -303,7 +303,7 @@ let check program =
 			   This 	-> SId("this", Datatype(Objecttype(env.envName)))
 			|  Id s 	-> SId(s, getIDType env s)
 			|  ArrayAccess(e, el)	-> checkArrayAccess env e el
-			|  _ as e 	-> raise (Failure ("LHS of object access must be an instance of certain class"))
+			|  _     	-> raise (Failure ("LHS of object access must be an instance of certain class"))
 		in
 
 		let getCname lhsTyp = match lhsTyp with (*get the type of the expression before ‘.’, i.e. class name*)
@@ -989,7 +989,7 @@ let check program =
 			sreturnType = func.returnType;
 			sformals 	= classFormal :: func.formals;
 			sbody 		= fbody;
-			func_type	= Sast.User;
+			functype	= Sast.User;
 			overrides   = func.overrides;
 			source 		= cname;
 		}
@@ -1019,7 +1019,7 @@ let check program =
 					sreturnType = Datatype(Objecttype(cname));
 					sformals 	= constructor.formals;
 					sbody 		= appendConstructor fbody cname (Datatype(Objecttype(cname)));
-					func_type	= Sast.User;
+					functype	= Sast.User;
 					overrides 	= false;
 					source 		= "NA";
 				}
@@ -1043,7 +1043,7 @@ let check program =
 			sreturnType = Datatype(Objecttype(cname));
 			sformals 	= [];
 			sbody 		= deConstructorBody  cname;
-			func_type	= Sast.User;
+			functype	= Sast.User;
 			overrides   = false;
 			source 		= "NA";
 		}

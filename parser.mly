@@ -5,7 +5,7 @@
 %token SEMI LPAREN RPAREN LBRACE RBRACE LBRACKET RBRACKET COMMA
 %token AND NOT OR PLUS MINUS TIMES DIVIDE ASSIGN MODULO
 %token EQ NEQ LT LEQ GT GEQ
-%token RETURN IF ELSE FOR WHILE BREAK CONTINUE NEW 
+%token RETURN IF ELSE FOR WHILE NEW 
 %token <int> INT_LITERAL
 %token <float> FLOAT_LITERAL
 %token <string> STRING_LITERAL
@@ -202,8 +202,6 @@ stmt:
 	| 	FOR LPAREN expr_opt SEMI expr_opt SEMI expr_opt RPAREN stmt
 		 { For($3, $5, $7, $9) }
 	| 	WHILE LPAREN expr RPAREN stmt 	{ While($3, $5) }
-	|	BREAK SEMI					 	{ Break }
-	|	CONTINUE SEMI				 	{ Continue }
 	|   datatype ID SEMI 			 	{ Local($1, $2, Noexpr) }
 	| 	datatype ID ASSIGN expr SEMI 	{ Local($1, $2, $4) }
 

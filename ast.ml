@@ -34,8 +34,6 @@ type stmt =
 	| 	If of expr * stmt * stmt
 	| 	For of expr * expr * expr * stmt
 	| 	While of expr * stmt
-	|  	Break
-	|       Continue
 	|       Local of datatype * string * expr
 
 type field = Field of datatype * string
