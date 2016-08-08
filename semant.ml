@@ -67,7 +67,7 @@ let defaultC =
 	formals    = [];
 	body       = [];
 	overrides 		= false;
-	root_cname 		= None;
+	rootcname 		= None;
 }
 
 let getName cname fdecl = (*get the name of function,cname.constructor-> constructor / cname.xxx-> normal_function / main*)
@@ -761,7 +761,7 @@ let check program =
 					formals = child_fdecl.formals;
 					body = child_fdecl.body;
 					overrides = true;
-					root_cname = get_root_cname base_fdecl.root_cname;
+					rootcname = get_root_cname base_fdecl.rootcname;
 				} 
 			in
 			if (getName_without_class base_fdecl) = (getName_without_class child_fdecl) 
@@ -946,7 +946,7 @@ let check program =
 			thisInit  @ fbodyStmt		
 		in
 		
-		let rootClassName = match func.root_cname with 
+		let rootClassName = match func.rootcname with 
 			Some(x) -> x
 			| None -> cname
 		in

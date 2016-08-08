@@ -44,7 +44,7 @@ type func_decl = {
 	formals : formal list;
 	body : stmt list;
 	overrides : bool;
-	root_cname : string option;
+	rootcname : string option;
 	
 }
 

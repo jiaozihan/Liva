@@ -94,7 +94,7 @@ constructor:
 			formals = $3;
 			body = List.rev $6;
 			overrides = false;
-            root_cname = None;		
+            rootcname = None;		
 			
         
 		}
@@ -127,7 +127,7 @@ fdecl:
 			formals = $4;
 			body = List.rev $7;
 			overrides = false;
-            root_cname = None;		
+            rootcname = None;		
             
 		} 
 	}
