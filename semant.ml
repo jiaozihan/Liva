@@ -97,9 +97,8 @@ let get_type_from_sexpr = function(*get the type of sexpression*)
 	|  	SUnop(_, _, d) 			-> d
 	| 	SNull					-> Datatype(Null_t) 
 											
-(***********************************************************)
-(* Entry point for translating Ast to Sast *)
-(***********************************************************)
+
+(**** Entry point for translating Ast to Sast *****)
 
 let check program = 
 
