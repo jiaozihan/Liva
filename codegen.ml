@@ -292,7 +292,7 @@ and codegen_print expr_list llbuilder =
 
 
 	let map_expr_to_printfexpr expr =
-		let exprType = Semant.get_type_from_sexpr expr in
+		let exprType = Semant.typOfSexpr expr in
 		match exprType with 
 		Datatype(Bool_t) ->
 			incr_tmp ();
@@ -310,7 +310,7 @@ and codegen_print expr_list llbuilder =
 	in
 
 	let params = List.map map_expr_to_printfexpr expr_list in
-	let param_types = List.map (Semant.get_type_from_sexpr) expr_list in 
+	let param_types = List.map (Semant.typOfSexpr) expr_list in 
 
 	let map_param_to_string = function 
 		Arraytype(Char_t, 1) 	-> "%s"
@@ -328,8 +328,8 @@ and codegen_print expr_list llbuilder =
 	build_call printf (Array.of_list (s :: params)) "tmp" llbuilder
 
 and binop_gen e1 op e2 d llbuilder =
-	let type1 = Semant.get_type_from_sexpr e1 in
-	let type2 = Semant.get_type_from_sexpr e2 in
+	let type1 = Semant.typOfSexpr e1 in
+	let type2 = Semant.typOfSexpr e2 in
 
 	(* Generate llvalues from e1 and e2 *)
 
@@ -394,7 +394,7 @@ and binop_gen e1 op e2 d llbuilder =
 
 and handle_unop op e d llbuilder =
 	(* Get the type of e *) 
-	let eType = Semant.get_type_from_sexpr e in
+	let eType = Semant.typOfSexpr e in
 	(* Get llvalue  *)
 	let e = codegen_sexpr llbuilder e in
 
@@ -421,7 +421,7 @@ and handle_unop op e d llbuilder =
 
 
 and codegen_sizeof el llbuilder =
-	let type_of_sexpr = Semant.get_type_from_sexpr (List.hd el) in
+	let type_of_sexpr = Semant.typOfSexpr (List.hd el) in
 	let type_of_sexpr = get_type type_of_sexpr in
 	let size_of_typ = L.size_of type_of_sexpr in	
 	L.build_intcast size_of_typ i32_t "tmp" llbuilder
@@ -446,7 +446,7 @@ and codegen_cast el d llbuilder =
 		| 	_ as t -> raise (Failure("cannot cast"))
 	in
 	let expr = List.hd el in
-	let t = Semant.get_type_from_sexpr expr in
+	let t = Semant.typOfSexpr expr in
 	let lhs = match expr with
 	| 	Sast.SId(id, d) -> codegen_id false false id d llbuilder
 	|  	SObjAccess(e1, e2, d) -> codegen_obj_access false e1 e2 d llbuilder
@@ -483,7 +483,7 @@ and codegen_id isDeref checkParam id d llbuilder =
 			with | Not_found -> raise (Failure("2 unknown variable id "^ id))
 
 and assign_gen lhs rhs d llbuilder = 
-	let rhs_t = Semant.get_type_from_sexpr rhs in
+	let rhs_t = Semant.typOfSexpr rhs in
 	let lhs, isObjAccess = match lhs with
 		| Sast.SId(id, d) -> codegen_id false false id d llbuilder, false
 		| SObjAccess(e1, e2, d) -> codegen_obj_access false e1 e2 d llbuilder, true
@@ -640,13 +640,13 @@ and codegen_obj_access isAssign lhs rhs d llbuilder =
 
 			(* Set parent, check if base is field *)
 		| 	SObjAccess(e1, e2, d) 	-> 
-				let e1_type = Semant.get_type_from_sexpr e1 in
+				let e1_type = Semant.typOfSexpr e1 in
 				let e1 = check_rhs true parent_expr parent_type e1 in
 				let e2 = check_rhs true e1 e1_type e2 in
 				e2
 		| 	_ as e -> raise (Failure("invalid access"))
 	in 
-	let lhs_type = Semant.get_type_from_sexpr lhs in 
+	let lhs_type = Semant.typOfSexpr lhs in 
 	match lhs_type with
 		Arraytype(_, _) -> 
 			let lhs = codegen_sexpr llbuilder lhs in

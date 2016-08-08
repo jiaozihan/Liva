@@ -202,8 +202,6 @@ stmt:
 	| 	FOR LPAREN expr_opt SEMI expr_opt SEMI expr_opt RPAREN stmt
 		 { For($3, $5, $7, $9) }
 	| 	WHILE LPAREN expr RPAREN stmt 	{ While($3, $5) }
-	|	BREAK SEMI					 	{ Break }
-	|	CONTINUE SEMI				 	{ Continue }
 	|   datatype ID SEMI 			 	{ Local($1, $2, Noexpr) }
 	| 	datatype ID ASSIGN expr SEMI 	{ Local($1, $2, $4) }
 

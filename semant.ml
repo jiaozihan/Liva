@@ -78,7 +78,7 @@ let getName cname fdecl = (*get the name of function,cname.constructor-> constru
 	| _ 	-> cname ^ "." ^ name
 
 		
-let get_type_from_sexpr = function(*get the type of sexpression*)
+let typOfSexpr = function(*get the type of sexpression*)
 		SInt_Lit(_)				-> Datatype(Int_t)
 	| 	SBoolean_Lit(_)			-> Datatype(Bool_t)
 	| 	SFloat_Lit(_)			-> Datatype(Float_t)
@@ -154,13 +154,13 @@ let check program =
 		let assistant mp cdecl =
 			let fieldpart mp = function Field(d,n) ->
 				if (StringMap.mem n mp)
-					then raise (Failure ("Duplicated Field: " ^ n))(*exception:DuplicateField *)
+					then raise (Failure ("Duplicated Field: " ^ n))
 				else (StringMap.add n (Field(d, n)) mp)
 			in
 			
 			let constructorpart condecl = 
 				if List.length condecl > 1
-					then raise (Failure ("Duplicated Constructor"))(*exception:DuplicateConstructor*)
+					then raise (Failure ("Duplicated Constructor"))
 				else if List.length condecl = 0 (*default constructor*)
 					then StringMap.add (getConstructorName cdecl.cname defaultC) defaultC StringMap.empty
 				else
@@ -173,18 +173,18 @@ let check program =
 				in
 
 				if (StringMap.mem funname mp)
-					then raise (Failure ("Duplicated Function: " ^ funname))(*exception:DuplicateFunction*)
+					then raise (Failure ("Duplicated Function: " ^ funname))
 				else 
 					let strfunname = string_of_fname fdecl.fname
 					in
 					
 					if (StringMap.mem strfunname reserved_functions_map)
-						then raise (Failure ("Cannot use the reserved buit-in function name: " ^ strfunname))(*exception:CannotUseReservedFuncName*)
+						then raise (Failure ("Cannot use the reserved buit-in function name: " ^ strfunname))
 					else (StringMap.add (getName cdecl.cname fdecl) fdecl m)
 			in
 
 			(if (StringMap.mem cdecl.cname mp)
-				then raise (Failure ("Duplicated class name: " ^ cdecl.cname))(*exception:DuplicateClassName*)
+				then raise (Failure ("Duplicated class name: " ^ cdecl.cname))
 			else
 				StringMap.add cdecl.cname
 				{
@@ -217,7 +217,7 @@ let check program =
 	|   Null                -> SNull, env
 	|   Noexpr              -> SNoexpr, env
 	|   ObjAccess(e1, e2)   -> checkObjAccess env e1 e2, env
-	|   ObjectCreate(s, el) -> checkConstructor env s el, env
+	|   ObjectCreate(s, el) -> convertConstructor env s el, env
 	|   Call(s, el)         -> checkCallType env s el, env
 	|   ArrayCreate(d, el)  -> checkArrayInitialize env d el, env
 	|   ArrayAccess(e, el)  -> checkArrayAccess env e el, env
@@ -252,7 +252,7 @@ let check program =
 		let checkIndexType e = (*check whether the type of index is int*)
 			let sexpr, _ = exprToSexpr env e (*convert expression to sexpression*)
 			in
-				let sexpr_type = get_type_from_sexpr sexpr (*get the type of sexpression*)
+				let sexpr_type = typOfSexpr sexpr (*get the type of sexpression*)
 				in
 					if sexpr_type = Datatype(Int_t) 
 						then sexpr
@@ -274,7 +274,7 @@ let check program =
 			let checkIndexType arg = (*check whether the type of index is int*)
 				let sexpr, _ = exprToSexpr env arg (*convert expression to sexpression*)
 				in
-					let sexpr_type = get_type_from_sexpr sexpr (*get the type of sexpression*)
+					let sexpr_type = typOfSexpr sexpr (*get the type of sexpression*)
 					in
 						if sexpr_type = Datatype(Int_t) 
 							then sexpr
@@ -282,7 +282,7 @@ let check program =
 			in
 				let se, _ = exprToSexpr env e (*convert expression to sexpression*)
 				in
-					let se_type = get_type_from_sexpr se (*get the type of sexpression*)
+					let se_type = typOfSexpr se (*get the type of sexpression*)
 					in
 						let checkArraySize num_params = function
 							   Arraytype(t, n) -> if num_params < n
@@ -299,19 +299,19 @@ let check program =
 
 	and checkObjAccess env lhs rhs =
 
-		let check_lhs = function(*check the expression before ‘.’ and get sexpression*)
-			   This 	-> SId("this", Datatype(Objecttype(env.env_name)))
-			|  Id s 	-> SId(s, getIDType env s)
-			|  ArrayAccess(e, el)	-> checkArrayAccess env e el
-			|  _ as e 	-> raise (Failure ("LHS of object access must be an instance of certain class"))
+		let checkLhs = function(*check the expression before ‘.’ and get sexpression*)
+			   This 		      -> SId("this", Datatype(Objecttype(env.env_name)))
+			|  Id s 			  -> SId(s, getIDType env s)
+			|  ArrayAccess(e, el) -> checkArrayAccess env e el
+			|  _				  -> raise (Failure ("LHS of object access must be an instance of certain class"))
 		in
 
-		let get_cname lhs_datatyp = match lhs_datatyp with (*get the type of the expression before ‘.’, i.e. class name*)
+		let getCname lhsDatatyp = match lhsDatatyp with (*get the type of the expression before ‘.’, i.e. class name*)
 				Datatype(Objecttype(name)) 	-> name
 			| 	_ as d						-> raise (Failure ("Object access must have ObjectType: " ^ string_of_datatype d))
 		in
-		let rec check_rhs (env) lhs_datatyp=
-			let class_name = get_cname lhs_datatyp (*get the class name*)
+		let rec checkRhs (env) lhsDatatyp=
+			let class_name = getCname lhsDatatyp (*get the class name*)
 			in
 				let search_classfield env (id) cname=
 				let cmap = StringMap.find cname env.env_class_maps (*get the class map of current class*)
@@ -328,19 +328,19 @@ let check program =
 					|  _ as e		   -> raise (Failure ("Invalid object access: " ^ string_of_expr e))
 		in
 
-		let s_lhs = check_lhs lhs in
+		let sLhs = checkLhs lhs in
 			
-		let s_lhs_type = get_type_from_sexpr s_lhs in 
+		let sLhsType = typOfSexpr sLhs in 
 		
-		let l_cname = get_cname s_lhs_type in
+		let lCname = getCname sLhsType in
 				
-		let lhs_env = updateEnv env l_cname in
+		let lhsEnv = updateEnv env lCname in
 		
-		let s_rhs, _ = check_rhs lhs_env s_lhs_type (*env*) rhs in
+		let sRhs, _ = checkRhs lhsEnv sLhsType (*env*) rhs in
 		
-		let s_rhs_type = get_type_from_sexpr s_rhs in 
+		let sRhsType = typOfSexpr sRhs in 
 
-		SObjAccess(s_lhs, s_rhs, s_rhs_type)
+		SObjAccess(sLhs, sRhs, sRhsType)
 
 	and checkCallType env fname el =
 		let sel, env = exprsToSexprs env el(*convert expression list to sexpression list*)
@@ -355,7 +355,7 @@ let check program =
 					| _            -> Datatype(Void_t)
 				in
 				
-				let ptyp = get_type_from_sexpr param(*get the type of actual parameter*)
+				let ptyp = typOfSexpr param(*get the type of actual parameter*)
 				in
 					if ftyp = ptyp
 						then param
@@ -400,25 +400,15 @@ let check program =
 			SCall(sfname, actuals, f.returnType, index)
 		with | Not_found -> raise (Failure ("Function is not found: " ^ sfname))
 
-	and checkConstructor env s el =
+	and convertConstructor env s el =
 		let sel, env = exprsToSexprs env el
 		in
 		
-		let cmap = try StringMap.find s env.env_class_maps(*find the class*)
-					with | Not_found -> raise (Failure ("Undefined class: " ^ s))
-		in
-		
 		let params = List.fold_left 
-			(fun s e -> s ^ "." ^ (string_of_datatype (get_type_from_sexpr e))) "" sel
+			(fun s e -> s ^ "." ^ (string_of_datatype (typOfSexpr e))) "" sel
 		in
 					
 		let constructor_name = s ^ "." ^ "constructor" ^ params
-		in
-						
-		let _ = 
-			try StringMap.find constructor_name cmap.constructor_map(*find constructor with type check*)
-			with  | Not_found -> raise (Failure ("Constructor is not found: " ^ constructor_name))
-						(*let _ = raise(Failure("" ^ constructor_name))*)
 		in
 		
 		let objectTyp = Datatype(Objecttype(s)) in
@@ -430,9 +420,9 @@ let check program =
 		in
 		let se2, env = exprToSexpr env e2
 		in
-		let type1 = get_type_from_sexpr se1(*get the type of sexpression*)
+		let type1 = typOfSexpr se1(*get the type of sexpression*)
 		in
-		let type2 = get_type_from_sexpr se2
+		let type2 = typOfSexpr se2
 		in 
 		
 		match (type1, se2) with
@@ -458,7 +448,7 @@ let check program =
 		in
 		let se, env = exprToSexpr env e (*convert expression to sexpression*)
 		in
-		let st = get_type_from_sexpr se (*get the type of sexpression*)
+		let st = typOfSexpr se (*get the type of sexpression*)
 		in
 			match st with (*check the type of operand*)
 				   Datatype(Int_t) 	
@@ -467,7 +457,7 @@ let check program =
 				|  _ as o            -> raise (Failure ("Invalid operant type for unary operation: " ^ string_of_datatype o))
 
 	and checkBinop env e1 op e2 =	
-		let get_sbinop_equal type1 type2 se1 se2 op =
+		let getSbinopEqual type1 type2 se1 se2 op =
 			if (type1 = Datatype(Float_t) || type2 = Datatype(Float_t)) (*unqualified types*)
 				then raise (Failure ("Equality operation is not supported for Float types"))
 			else
@@ -479,13 +469,13 @@ let check program =
 																	else raise (Failure ("Invalid equality operator for these types: " ^ (string_of_datatype type1) ^ " <-> " ^ (string_of_datatype type2)))
 		in
 		
-		let get_sbinop_logic type1 type2 se1 se2 op =(*check operants and conver to sbinop*)
+		let getSbinopLogic type1 type2 se1 se2 op =(*check operants and conver to sbinop*)
 			match type1, type2 with
 				   Datatype(Bool_t), Datatype(Bool_t) -> SBinop(se1, op, se2, Datatype(Bool_t))
 				|  _                                  -> raise (Failure ("Invalid type for logical operator" ^ (string_of_datatype type1) ^ "<->" ^ (string_of_datatype type2)))
 		in
 		
-		let get_sbinop_compa type1 type2 se1 se2 op =
+		let getSbinopCompa type1 type2 se1 se2 op =
 			match type1, type2 with
 				   Datatype(Int_t), Datatype(Float_t)
 				|  Datatype(Float_t), Datatype(Int_t) -> SBinop(se1, op, se2, Datatype(Bool_t))
@@ -494,7 +484,7 @@ let check program =
 														 else raise (Failure ("Invalid type for comparison operator: " ^ (string_of_datatype type1) ^ "<->" ^ (string_of_datatype type2)))
 		in
 		
-		let get_sbinop_arith type1 type2 se1 se2 op =
+		let getSbinopArith type1 type2 se1 se2 op =
 			match type1, type2 with (*qualified combination of operant type*)
 				   Datatype(Int_t), Datatype(Float_t)
 				|  Datatype(Float_t), Datatype(Int_t) 
@@ -507,16 +497,16 @@ let check program =
 		in
 		let se2, env = exprToSexpr env e2 (*convert expression to sexpression*)
 		in
-		let type1 = get_type_from_sexpr se1(*get the type of sexpression*)
+		let type1 = typOfSexpr se1(*get the type of sexpression*)
 		in
-		let type2 = get_type_from_sexpr se2(*get the type of sexpression*)
+		let type2 = typOfSexpr se2(*get the type of sexpression*)
 		in
 		
 			match op with(*check and convert binopexpression according to binopexpression type*)
-					Equal | Neq                  -> get_sbinop_equal type1 type2 se1 se2 op
-				|	And | Or                     -> get_sbinop_logic type1 type2 se1 se2 op 
-				|	Less | Leq | Greater | Geq   -> get_sbinop_compa type1 type2 se1 se2 op
-				|	Add | Mult | Sub | Div | Mod -> get_sbinop_arith type1 type2 se1 se2 op 
+					Equal | Neq                  -> getSbinopEqual type1 type2 se1 se2 op
+				|	And | Or                     -> getSbinopLogic type1 type2 se1 se2 op 
+				|	Less | Leq | Greater | Geq   -> getSbinopCompa type1 type2 se1 se2 op
+				|	Add | Mult | Sub | Div | Mod -> getSbinopArith type1 type2 se1 se2 op 
 				| 	_                            -> raise (Failure ("Invalid binop operator: " ^ (string_of_op op)))
 				
 	in
@@ -535,7 +525,7 @@ let check program =
 	and checkExprStmt e env = 
 		let se, env = exprToSexpr env e
 		in
-			let typ = get_type_from_sexpr se
+			let typ = typOfSexpr se
 			in 
 			SExpr(se, typ), env
 				
@@ -545,7 +535,7 @@ let check program =
 			ifbody, _ = checkStmt env s1 and
 			elsebody, _ = checkStmt env s2 
 		in
-		let typ = get_type_from_sexpr se 
+		let typ = typOfSexpr se 
 		in
 		match typ with
 				Datatype(Bool_t) 	-> SIf(se, ifbody, elsebody), env
@@ -558,7 +548,7 @@ let check program =
 			se3, _ = exprToSexpr env e3 and
 			forBodyStmt, env = checkStmt env s 
 		in
-		let cond = get_type_from_sexpr se2 
+		let cond = typOfSexpr se2 
 		in 
 		match cond with 
 				Datatype(Bool_t) 	-> SFor(se1, se2, se3, forBodyStmt), env
@@ -570,7 +560,7 @@ let check program =
 		let se, _ = exprToSexpr env e and 
 			sstmt, _ = checkStmt env s
 		in	    
-		let typ = get_type_from_sexpr se 
+		let typ = typOfSexpr se 
 		in 
 		match typ with 
 				Datatype(Bool_t) 	-> SWhile(se, sstmt), env
@@ -584,7 +574,7 @@ let check program =
 
 	and checkReturn e env = 
 		let se, env = exprToSexpr env e in
-		let	typ = get_type_from_sexpr se 
+		let	typ = typOfSexpr se 
 		in
 		match typ, env.env_returnType with
 			   Datatype(Null_t), Datatype(Objecttype(_)) -> SReturn(se, typ), env
@@ -599,7 +589,7 @@ let check program =
 		else
 			let se, env = exprToSexpr env e 
 			in
-			let typ = get_type_from_sexpr se 
+			let typ = typOfSexpr se 
 			in
 			let update_env = {
 					env_class_maps = env.env_class_maps;
