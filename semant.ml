@@ -153,13 +153,13 @@ let check program =
 		let assistant mp cdecl =
 			let fieldpart mp = function Field(d,n) ->
 				if (StringMap.mem n mp)
-					then raise (Failure ("Duplicated Field: " ^ n))(*exception:DuplicateField *)
+					then raise (Failure ("Duplicated Field: " ^ n))
 				else (StringMap.add n (Field(d, n)) mp)
 			in
 			
 			let constructorpart condecl = 
 				if List.length condecl > 1
-					then raise (Failure ("Duplicated Constructor"))(*exception:DuplicateConstructor*)
+					then raise (Failure ("Duplicated Constructor"))
 				else if List.length condecl = 0 (*default constructor*)
 					then StringMap.add (getConstructorName cdecl.cname defaultC) defaultC StringMap.empty
 				else
@@ -172,18 +172,18 @@ let check program =
 				in
 
 				if (StringMap.mem funname mp)
-					then raise (Failure ("Duplicated Function: " ^ funname))(*exception:DuplicateFunction*)
+					then raise (Failure ("Duplicated Function: " ^ funname))
 				else 
 					let strfunname = string_of_fname fdecl.fname
 					in
 					
 					if (StringMap.mem strfunname builtFuncMap)
-						then raise (Failure ("Cannot use the reserved buit-in function name: " ^ strfunname))(*exception:CannotUseReservedFuncName*)
+						then raise (Failure ("Cannot use the reserved buit-in function name: " ^ strfunname))
 					else (StringMap.add (getName cdecl.cname fdecl) fdecl m)
 			in
 
 			(if (StringMap.mem cdecl.cname mp)
-				then raise (Failure ("Duplicated class name: " ^ cdecl.cname))(*exception:DuplicateClassName*)
+				then raise (Failure ("Duplicated class name: " ^ cdecl.cname))
 			else
 				StringMap.add cdecl.cname
 				{
@@ -284,9 +284,7 @@ let check program =
 					let typ = get_type_from_sexpr se (*get the type of sexpression*)
 					in
 						let checkArraySize num = function
-							   Arraytype(t, n) -> if num < n
-													then Arraytype(t, (n-num))(*remain, now a smaller array*)
-												  else if num = n
+							   Arraytype(t, n) -> if num = n
 													then Datatype(t)
 												  else raise (Failure ("Invalid demention for array access: " ^ (string_of_int num) ^ " > " ^ (string_of_int n)))
 							|  _ as t          -> raise (Failure ("Invalid type for array access: " ^ (string_of_datatype t)))	
@@ -403,21 +401,11 @@ let check program =
 		let sel, env = exprsToSexprs env el
 		in
 		
-		let cmap = try StringMap.find s env.envClassMaps(*find the class*)
-					with | Not_found -> raise (Failure ("Undefined class: " ^ s))
-		in
-		
 		let params = List.fold_left 
 			(fun s e -> s ^ "." ^ (string_of_datatype (get_type_from_sexpr e))) "" sel
 		in
 					
 		let constructorName = s ^ "." ^ "constructor" ^ params
-		in
-						
-		let _ = 
-			try StringMap.find constructorName cmap.constructorMap(*find constructor with type check*)
-			with  | Not_found -> raise (Failure ("Constructor is not found: " ^ constructorName))
-						(*let _ = raise(Failure("" ^ constructorName))*)
 		in
 		
 		let objectTyp = Datatype(Objecttype(s)) in
@@ -612,14 +600,14 @@ let check program =
 					envBuiltIn = env.envBuiltIn;
 				} 
 			in
-			if typ = Datatype(Void_t) || typ = Datatype(Null_t) || typ = d (* || (inherited d t) *)
+			if typ = Datatype(Void_t) || typ = Datatype(Null_t) || typ = d
 				then
 					match d with
 						  Datatype(Objecttype(x)) ->
 							if not (StringMap.mem (Ast.string_of_object d) env.envClassMaps) 
 								then raise (Failure ("Undefined Class: " ^ string_of_object d )) 
 							else
-								let local = SLocal(d, s, se) (*To Do about inherited *)
+								let local = SLocal(d, s, se)
 								in local, update_env
 						|  _ -> SLocal(d, s, se), update_env
 
@@ -639,17 +627,16 @@ let check program =
 		
 	in
 	
-	(* handle class inheritance*) (*TODO*)
-	let rec handle_inheritance cdecls class_maps =
-		let predecessors = build_inheritance_forest cdecls class_maps in
-		let cdecls_inherited = inherit_fields_cdecls cdecls predecessors in
-		let functionMaps_inherited = build_functionMap_inherited_lookup cdecls_inherited in
-		(*to do*)
-		let cmaps_with_inherited_fields = inherit_fields class_maps predecessors in
-		let cmaps_inherited = add_inherited_methods cmaps_with_inherited_fields cdecls_inherited functionMaps_inherited in
-		cmaps_inherited, cdecls_inherited
+	(* about inheritance*)
+	let rec manageInheritance classes classMaps =
+		let inheritanceMap = getInheritanceMap classes classMaps in(*forest: father class name -> [son class name]*)
+		let allClassesM = getClassesForM classes inheritanceMap in(*all classes including inherited classes which have been dealed with according to methods*)
+		let classMethodMap = getClassMethodMap allClassesM in
+		let allClassmapsF = getClassmapForF classMaps inheritanceMap in(* classmap including inherited classes which have been dealed with according to field *)
+		let cmaps_inherited = add_inherited_methods allClassmapsF allClassesM classMethodMap in
+		cmaps_inherited, allClassesM
 
-	and build_inheritance_forest cdecls cmap = 
+	and getInheritanceMap cdecls cmap = 
 		let handler a cdecl =
 			match cdecl.extends with 
 				Parent(s) 	-> 
@@ -671,198 +658,192 @@ let check program =
 		ignore(StringMap.iter handler forest);
 		forest
 
-	and inherit_fields_cdecls cdecls inheritance_forest = 
-		(* iterate through cdecls to make a map for lookup *)
-		let cdecl_lookup = List.fold_left (fun a litem -> StringMap.add litem.cname litem a) StringMap.empty cdecls in
-		let add_key key pred maps = 
-			let elem1 = StringSet.add key (fst maps) in
-			let accum acc child = StringSet.add child acc in
-			let elem2 = List.fold_left (accum) (snd maps) pred in
-			(elem1, elem2)
+	and getClassesForM cdecls inheritanceMap = 
+		let cDataBase = List.fold_left (fun a litem -> StringMap.add litem.cname litem a) StringMap.empty cdecls (*class name -> class declaration*)
 		in
-		let empty_s = StringSet.empty in
-		let res = StringMap.fold add_key inheritance_forest (empty_s, empty_s) in
-		let roots = StringSet.diff (fst res) (snd res) in
-		let rec add_inherited_fields predec desc map_to_update = 
-			let merge_fields accum descendant = 
-				let updated_predec_cdecl = StringMap.find predec accum in 
-				let descendant_cdecl_to_update = StringMap.find descendant cdecl_lookup in
-				let merged = merge_cdecls updated_predec_cdecl descendant_cdecl_to_update in 
-				let updated = (StringMap.add descendant merged accum) in 
-				if (StringMap.mem descendant inheritance_forest) then 
-					let descendants_of_descendant = StringMap.find descendant inheritance_forest in
-					add_inherited_fields descendant descendants_of_descendant updated
-				else updated
+		let seperateInheritanceMap fathers sons sets = 
+			let fatherSet = StringSet.add fathers (fst sets) in
+			let addSonList sndSet son = StringSet.add son sndSet in
+			let sonSet = List.fold_left addSonList (snd sets) sons in
+			(fatherSet, sonSet)
+		in
+		let sSet = StringSet.empty in
+		let fatherAndson = StringMap.fold seperateInheritanceMap inheritanceMap (sSet, sSet) in
+		let noFather = StringSet.diff (fst fatherAndson) (snd fatherAndson) in
+		let rec getNewClasses newMap father sons = 
+			let assistant newMap oneson = 
+				let fatherCdecl = StringMap.find father newMap in (* class declaration of father*)
+				let sonCdecl = StringMap.find oneson cDataBase in (* class declaration of one son of father *)
+				let newSonCdecl = getNewSonCdecl fatherCdecl sonCdecl in 
+				let newNewMap = (StringMap.add oneson newSonCdecl newMap) in 
+				if (StringMap.mem oneson inheritanceMap) then 
+					let sonsOFOneSon = StringMap.find oneson inheritanceMap in
+					getNewClasses newNewMap oneson sonsOFOneSon
+				else newNewMap
 			in
-			List.fold_left merge_fields map_to_update desc
+			List.fold_left assistant newMap sons
 		in
-		(* map class name of every class_decl in `cdecls` to its inherited cdecl *)
-		let inherited_cdecls = 
-			let traverse_tree tree_root accum = 
-				let tree_root_descendant = StringMap.find tree_root inheritance_forest in 
-				let accum_with_tree_root_mapping = StringMap.add tree_root (StringMap.find tree_root cdecl_lookup) accum in
-				add_inherited_fields tree_root tree_root_descendant accum_with_tree_root_mapping
+		let newClassMap = 
+			let assistant noFather mp = 
+				let sonOfSameFather = StringMap.find noFather inheritanceMap in (*list: son classes for a certain father class*)
+				let noFatherMap = StringMap.add noFather (StringMap.find noFather cDataBase) mp in(*stringmap: root class name -> class declaration*)
+				getNewClasses noFatherMap noFather sonOfSameFather 
 			in
-			StringSet.fold traverse_tree roots StringMap.empty 
+			StringSet.fold assistant noFather StringMap.empty 
 		in
-		(* build a list of updated cdecls corresponding to the sequence of cdecls in `cdecls` *)
-		let add_inherited_cdecl cdecl accum = 
-			let inherited_cdecl = 
-				try StringMap.find cdecl.cname inherited_cdecls 
+		let completeClasses cdecl mp = 
+			let halfCompletedCMp = 
+				try StringMap.find cdecl.cname newClassMap 
 				with | Not_found -> cdecl
 			in
-			inherited_cdecl::accum
+			halfCompletedCMp::mp
 		in
-		let result = List.fold_right add_inherited_cdecl cdecls [] in
-		result
+		let completedClassesM = List.fold_right completeClasses cdecls [] in
+		completedClassesM
 
 
-	and merge_cdecls base_cdecl child_cdecl = 
-	(* return a cdecl in which cdecl.cbody.fields contains the fields of 
-	the extended class, concatenated by the fields of the child class *)
-		let child_cbody = 
+	and getNewSonCdecl fatherCdecl sonCdecl = 
+		let sonCBody = 
 			{
-				fields = base_cdecl.cbody.fields @ child_cdecl.cbody.fields;
-				 constructors = child_cdecl.cbody.constructors;
-				 methods = merge_methods base_cdecl.cname base_cdecl.cbody.methods child_cdecl.cbody.methods
+				fields = fatherCdecl.cbody.fields @ sonCdecl.cbody.fields;
+				constructors = sonCdecl.cbody.constructors;
+				methods = getFatherMethods fatherCdecl.cname fatherCdecl.cbody.methods sonCdecl.cbody.methods
 			}
 			in
 			{
-				cname = child_cdecl.cname;
-				extends = child_cdecl.extends;
-				cbody = child_cbody
+				cname = sonCdecl.cname;
+				extends = sonCdecl.extends;
+				cbody = sonCBody
 			}
 
-	and merge_methods base_cname base_methods child_methods =
-		let check_overrides child_fdecl accum = 
-			let base_checked_for_overrides = 
-				replace_fdecl_in_base_methods base_cname (fst accum) child_fdecl 
+	and getFatherMethods father fatherMethods sonMethods =
+		let checkMethod sonMethod lists = 
+			let newSonMethods = 
+				getNewSonMethod father (fst lists) sonMethod 
 			in
-			if (fst accum) = base_checked_for_overrides
-				then ((fst accum), child_fdecl::(snd accum)) 
-				else (base_checked_for_overrides, (snd accum))
+			if (fst lists) = newSonMethods
+				then ((fst lists), sonMethod::(snd lists)) 
+			else (newSonMethods, (snd lists))
 		in
-		let updated_base_and_child_fdecls = 
-			List.fold_right check_overrides child_methods (base_methods, [])
+		let allMethod = 
+			List.fold_right checkMethod sonMethods (fatherMethods, [])
 		in
-		(fst updated_base_and_child_fdecls) @ (snd updated_base_and_child_fdecls)
+		(fst allMethod) @ (snd allMethod)
 
-	and replace_fdecl_in_base_methods base_cname base_methods child_fdecl = 
-		let replace base_fdecl accum = 
+	and getNewSonMethod father fatherMethods sonMethod = 
+		let replace fatherMethod sonMethodList = 
 			let get_root_cname = function
-				None -> Some(base_cname)
+				None -> Some(father)
 				| Some(x) -> Some(x)
 			in
-			let modify_child_fdecl = 
+			let newSonMethod = 
 				{
-					fname = child_fdecl.fname;
-					returnType = child_fdecl.returnType;
-					formals = child_fdecl.formals;
-					body = child_fdecl.body;
+					fname = sonMethod.fname;
+					returnType = sonMethod.returnType;
+					formals = sonMethod.formals;
+					body = sonMethod.body;
 					overrides = true;
-					rootcname = get_root_cname base_fdecl.rootcname;
+					rootcname = get_root_cname fatherMethod.rootcname;
 				} 
 			in
-			if (getName_without_class base_fdecl) = (getName_without_class child_fdecl) 
-				then modify_child_fdecl::accum 
-				else base_fdecl::accum
+			if (getMethodName fatherMethod) = (getMethodName sonMethod) 
+				then newSonMethod::sonMethodList 
+				else fatherMethod::sonMethodList
 		in
-		List.fold_right replace base_methods []
+		List.fold_right replace fatherMethods []
 
-	and getName_without_class fdecl = 
+	and getMethodName fdecl = 
 
-		let params = List.fold_left (fun s -> (function Formal(t, _) -> s ^ "." ^ Ast.string_of_datatype t | _ -> "" )) "" fdecl.formals in
+		let params = List.fold_left 
+			(fun s -> 
+				(function 	  Formal(t, _) -> s ^ "." ^ Ast.string_of_datatype t
+							| _            -> "" )) 
+			"" fdecl.formals
+		in
 		let name = Ast.string_of_fname fdecl.fname in
 		let ret_type = Ast.string_of_datatype fdecl.returnType in
 		ret_type ^ "." ^ name ^ "." ^ params
 
 
 
-	and build_functionMap_inherited_lookup cdecls_inherited = 
-		let build_functionMap cdecl =
-			let add_func m fdecl = StringMap.add (getName cdecl.cname fdecl) fdecl m in
-			List.fold_left add_func StringMap.empty cdecl.cbody.methods
+	and getClassMethodMap allClasses = 
+		let getMethodMap cdecl = (*stringmap: method name -> function declaration*)
+			let addMethod mp fdecl = StringMap.add (getName cdecl.cname fdecl) fdecl mp in
+			List.fold_left addMethod StringMap.empty cdecl.cbody.methods
 		in
-		let add_class_functionMap m cdecl = StringMap.add cdecl.cname (build_functionMap cdecl) m in
-		List.fold_left add_class_functionMap StringMap.empty cdecls_inherited
+		let addClassMethodMap mp cdecl = StringMap.add cdecl.cname (getMethodMap cdecl) mp in (*stringmap: class name -> function map (upper)*)
+		List.fold_left addClassMethodMap StringMap.empty allClasses
 
-	and inherit_fields class_maps predecessors =
-		(* Get basic inheritance map *)
-		let add_key key pred map = StringMap.add key pred map in
-		let cmaps_inherit = StringMap.fold add_key class_maps StringMap.empty in
-		(* Perform accumulation of child classes *)
-		let add_key key pred maps = 
-			let elem1 = StringSet.add key (fst maps) in
-			let accum acc child = StringSet.add child acc in
-			let elem2 = List.fold_left (accum) (snd maps) pred in
-			(elem1, elem2)
+	and getClassmapForF classMaps inheritanceMap = 
+		
+		let seperateInheritanceMap fathers sons sets = 
+			let fatherSet = StringSet.add fathers (fst sets) in
+			let addSonList sndSet son = StringSet.add son sndSet in
+			let sonSet = List.fold_left addSonList (snd sets) sons in
+			(fatherSet, sonSet)
 		in
-		let empty_s = StringSet.empty in
-		let res = StringMap.fold add_key predecessors (empty_s, empty_s) in
-		let roots = StringSet.diff (fst res) (snd res) in
-		(*in let _ = print_set_members roots*)
-		let rec add_inherited_fields predec desc cmap_to_update = 
-			let cmap_inherit accum descendant = 
-				let predec_fieldMap = (StringMap.find predec accum).fieldMap in
-				let desc_fieldMap = (StringMap.find descendant accum).fieldMap in 
-				let merged = merge_maps predec_fieldMap desc_fieldMap in 
-				let updated = update_class_maps "fieldMap" merged descendant accum in
-				if (StringMap.mem descendant predecessors) then 
-					let descendants_of_descendant = StringMap.find descendant predecessors in
-					add_inherited_fields descendant descendants_of_descendant updated 
-				else updated
+		let sSet = StringSet.empty in
+		let fatherAndson = StringMap.fold seperateInheritanceMap inheritanceMap (sSet, sSet) in
+		let noFather = StringSet.diff (fst fatherAndson) (snd fatherAndson) in
+		let rec getNewClassMap oldMap father sons = 
+			let assistant oldMap son = 
+				let fatherFieldMap = (StringMap.find father oldMap).fieldMap in (* field_map of father *)
+				let sonFieldMap = (StringMap.find son oldMap).fieldMap in (* field_map son *)
+				let newSonFieldMap = getNewSonFieldMap fatherFieldMap sonFieldMap in 
+				let newMap = getNewMap newSonFieldMap son oldMap in
+				if (StringMap.mem son inheritanceMap) then 
+					let sonOfSon = StringMap.find son inheritanceMap in
+					getNewClassMap newMap son sonOfSon 
+				else newMap
 			in
-			List.fold_left cmap_inherit cmap_to_update desc
-			(* end of add_inherited_fields *)
-		in 
-		let result = StringSet.fold (fun x a -> add_inherited_fields x (StringMap.find x predecessors) a) roots cmaps_inherit
-		(*in let _ = print_map result*)
+			List.fold_left assistant oldMap sons
+		in
+		let result = StringSet.fold (fun ns clp -> getNewClassMap clp ns (StringMap.find ns inheritanceMap)) noFather classMaps
 		in result
 
-	and merge_maps m1 m2 = 
-		StringMap.fold (fun k v a -> StringMap.add k v a) m1 m2
+	and getNewSonFieldMap fatherFieldMap sonFieldMap = (* add father's fields to son *)
+		StringMap.fold (fun fa fi sonmp -> StringMap.add fa fi sonmp) fatherFieldMap sonFieldMap
 
-	and update_class_maps map_type cmap_val cname cmap_to_update = 
-		let update m map_type = 
-			if map_type = "fieldMap" then
-				{
-					fieldMap = cmap_val;
+	and getNewMap sonFieldMap son oldMap = 
+		let assistant m = 
+			{
+					fieldMap = sonFieldMap;
 					functionMap = m.functionMap;
 					constructorMap = m.constructorMap;
 					builtFuncMap = m.builtFuncMap;
 					cdecl = m.cdecl;
-				}
-			else m
-		in
-		let updated = StringMap.find cname cmap_to_update in
-		let updated = update updated map_type in
-		let updated = StringMap.add cname updated cmap_to_update in
-		updated
+			}
 
-	and add_inherited_methods cmaps cdecls functionMaps_inherited = 
-		let find_cdecl cname = 
-			try List.find (fun cdecl -> cdecl.cname = cname) cdecls
-			with | Not_found -> raise Not_found
 		in
-		let update_with_inherited_methods cname cmap = 
-			let fmap = StringMap.find cname functionMaps_inherited in
-			let cdecl = find_cdecl cname in
+		let sonMap = StringMap.find son oldMap in
+		let newSonMap = assistant sonMap in
+		let newMap = StringMap.add son newSonMap oldMap in
+		newMap
+
+	and add_inherited_methods allClassmapsF allClassesM classMethodMap =
+		let getCdecl cname = 
+			try List.find (fun cdecl -> cdecl.cname = cname) allClassesM
+			with | Not_found -> raise (Failure("Class not found!")) (*impossible, has been checked before*)
+		in
+		let assistant cname cmap = 
+			let mMap = StringMap.find cname classMethodMap in
+			let cdecl = getCdecl cname in
 			{
 				fieldMap = cmap.fieldMap;
-				functionMap = fmap;
+				functionMap = mMap;
 				constructorMap = cmap.constructorMap;
 				builtFuncMap = cmap.builtFuncMap;
 				cdecl = cdecl;
 			}
 		in
-		let add_updated_cmap cname cmap accum = StringMap.add cname (update_with_inherited_methods cname cmap) accum in
-		StringMap.fold add_updated_cmap cmaps StringMap.empty
+		let updateCmap cname cmap mp = StringMap.add cname (assistant cname cmap) mp in
+		StringMap.fold updateCmap allClassmapsF StringMap.empty
 		
 			
 	
 	in
 	
-    let classMaps, cdecls = handle_inheritance classes classMaps 
+    let classMaps, cdecls = manageInheritance classes classMaps 
 	in
 	
 	let appendConstructor fbody cname returnType =
@@ -904,13 +885,10 @@ let check program =
 						)
 					]
 		in
-				(* Need to check for duplicate default constructs *)
-				(* Also need to add malloc around other constructors *)
 				thisInit @ fbody @ returnThis
 
 	in
 	
-	(* convert Ast functions to Sast functions*)
 	let convertFuncToSfunc classMaps reserved classMap cname func=
 	
 		let appendMain fbodyStmt cname returnType = 
@@ -977,7 +955,6 @@ let check program =
 		in
 		let fbody = fst (convertStmtsToSstmts env func.body) in
 		let funcName = (getName cname func) in
-		(*ignore(check_fbody fname fbody fdecl.returnType);*)
 		
 		let fbody = if funcName= "main" 
 			then (appendMain fbody cname (Datatype(Objecttype(cname)))) 
@@ -995,7 +972,6 @@ let check program =
 		
 	in 
 	
-	(*convert constructors to functions*)
 	let convertConstructorToSfunc classMaps reserved classMap cname constructor = 	
 
 	
@@ -1024,10 +1000,6 @@ let check program =
 				}
 	in
 
-	
-	
-
-	(* Convert ast to sast*)
 	let converttosast classMaps builtinFunctions cdecls = 
 	
 		let deConstructorBody cname = 
@@ -1048,7 +1020,6 @@ let check program =
 		}
 		in
 		
-		(*convert the class in ast to sast type*)
 		let convertClassToSast sfuncs cdecl =
 			{scname =cdecl.cname;
 			 sfields =cdecl.cbody.fields;
