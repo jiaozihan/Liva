@@ -51,13 +51,13 @@ let updateEnv env envName =
 	envBuiltIn   = env.envBuiltIn;
 }
 
-let struct_indexes: (string, int) Hashtbl.t =  Hashtbl.create 10
+let strucIndexes: (string, int) Hashtbl.t =  Hashtbl.create 10
 
-let predecessors:(string, string list) Hashtbl.t = Hashtbl.create 10
+let inheritanceRelation:(string, string list) Hashtbl.t = Hashtbl.create 10
 
 let createStructIndexes cdecls= 
 	let classHandler index cdecl=
-	Hashtbl.add struct_indexes cdecl.cname index in 
+	Hashtbl.add strucIndexes cdecl.cname index in 
 	List.iteri classHandler cdecls
 
 let defaultC = 
@@ -78,7 +78,7 @@ let getName cname fdecl = (*get the name of function,cname.constructor-> constru
 	| _ 	-> cname ^ "." ^ name
 
 		
-let get_type_from_sexpr = function(*get the type of sexpression*)
+let typOFSexpr = function(*get the type of sexpression*)
 		SInt_Lit(_)				-> Datatype(Int_t)
 	| 	SBoolean_Lit(_)			-> Datatype(Bool_t)
 	| 	SFloat_Lit(_)			-> Datatype(Float_t)
@@ -251,7 +251,7 @@ let check program =
 		let checkIndexType e = (*check whether the type of index is int*)
 			let sexpr, _ = exprToSexpr env e (*convert expression to sexpression*)
 			in
-				let typ= get_type_from_sexpr sexpr (*get the type of sexpression*)
+				let typ= typOFSexpr sexpr (*get the type of sexpression*)
 				in
 					if typ = Datatype(Int_t) 
 						then sexpr
@@ -273,7 +273,7 @@ let check program =
 			let checkIndexType arg = (*check whether the type of index is int*)
 				let sexpr, _ = exprToSexpr env arg (*convert expression to sexpression*)
 				in
-					let typ = get_type_from_sexpr sexpr (*get the type of sexpression*)
+					let typ = typOFSexpr sexpr (*get the type of sexpression*)
 					in
 						if typ = Datatype(Int_t) 
 							then sexpr
@@ -281,7 +281,7 @@ let check program =
 			in
 				let se, _ = exprToSexpr env e (*convert expression to sexpression*)
 				in
-					let typ = get_type_from_sexpr se (*get the type of sexpression*)
+					let typ = typOFSexpr se (*get the type of sexpression*)
 					in
 						let checkArraySize num = function
 							   Arraytype(t, n) -> if num = n
@@ -327,7 +327,7 @@ let check program =
 
 		let slhs= checkLHS lhs in
 			
-		let slhsTyp = get_type_from_sexpr slhs in 
+		let slhsTyp = typOFSexpr slhs in 
 		
 		let lcname = getCname slhsTyp in
 				
@@ -335,7 +335,7 @@ let check program =
 		
 		let srhs, _ = checkRHS lhsenv slhsTyp (*env*) rhs in
 		
-		let srhsTyp = get_type_from_sexpr srhs in 
+		let srhsTyp = typOFSexpr srhs in 
 
 		SObjAccess(slhs, srhs, srhsTyp )
 
@@ -352,7 +352,7 @@ let check program =
 					| _            -> Datatype(Void_t)
 				in
 				
-				let ptyp = get_type_from_sexpr param(*get the type of actual parameter*)
+				let ptyp = typOFSexpr param(*get the type of actual parameter*)
 				in
 					if ftyp = ptyp
 						then param
@@ -402,7 +402,7 @@ let check program =
 		in
 		
 		let params = List.fold_left 
-			(fun s e -> s ^ "." ^ (string_of_datatype (get_type_from_sexpr e))) "" sel
+			(fun s e -> s ^ "." ^ (string_of_datatype (typOFSexpr e))) "" sel
 		in
 					
 		let constructorName = s ^ "." ^ "constructor" ^ params
@@ -417,9 +417,9 @@ let check program =
 		in
 		let se2, env = exprToSexpr env e2
 		in
-		let type1 = get_type_from_sexpr se1(*get the type of sexpression*)
+		let type1 = typOFSexpr se1(*get the type of sexpression*)
 		in
-		let type2 = get_type_from_sexpr se2
+		let type2 = typOFSexpr se2
 		in 
 		
 		match (type1, se2) with
@@ -445,7 +445,7 @@ let check program =
 		in
 		let se, env = exprToSexpr env e (*convert expression to sexpression*)
 		in
-		let st = get_type_from_sexpr se (*get the type of sexpression*)
+		let st = typOFSexpr se (*get the type of sexpression*)
 		in
 			match st with (*check the type of operand*)
 				   Datatype(Int_t) 	
@@ -494,9 +494,9 @@ let check program =
 		in
 		let se2, env = exprToSexpr env e2 (*convert expression to sexpression*)
 		in
-		let type1 = get_type_from_sexpr se1(*get the type of sexpression*)
+		let type1 = typOFSexpr se1(*get the type of sexpression*)
 		in
-		let type2 = get_type_from_sexpr se2(*get the type of sexpression*)
+		let type2 = typOFSexpr se2(*get the type of sexpression*)
 		in
 		
 			match op with(*check and convert binopexpression according to binopexpression type*)
@@ -522,7 +522,7 @@ let check program =
 	and checkExprStmt e env = 
 		let se, env = exprToSexpr env e
 		in
-			let typ = get_type_from_sexpr se
+			let typ = typOFSexpr se
 			in 
 			SExpr(se, typ), env
 				
@@ -532,7 +532,7 @@ let check program =
 			ifbody, _ = checkStmt env s1 and
 			elsebody, _ = checkStmt env s2 
 		in
-		let typ = get_type_from_sexpr se 
+		let typ = typOFSexpr se 
 		in
 		match typ with
 				Datatype(Bool_t) 	-> SIf(se, ifbody, elsebody), env
@@ -545,7 +545,7 @@ let check program =
 			se3, _ = exprToSexpr env e3 and
 			forBodyStmt, env = checkStmt env s 
 		in
-		let cond = get_type_from_sexpr se2 
+		let cond = typOFSexpr se2 
 		in 
 		match cond with 
 				Datatype(Bool_t) 	-> SFor(se1, se2, se3, forBodyStmt), env
@@ -557,7 +557,7 @@ let check program =
 		let se, _ = exprToSexpr env e and 
 			sstmt, _ = checkStmt env s
 		in	    
-		let typ = get_type_from_sexpr se 
+		let typ = typOFSexpr se 
 		in 
 		match typ with 
 				Datatype(Bool_t) 	-> SWhile(se, sstmt), env
@@ -571,7 +571,7 @@ let check program =
 
 	and checkReturn e env = 
 		let se, env = exprToSexpr env e in
-		let	typ = get_type_from_sexpr se 
+		let	typ = typOFSexpr se 
 		in
 		match typ, env.envReturnType with
 			   Datatype(Null_t), Datatype(Objecttype(_)) -> SReturn(se, typ), env
@@ -586,7 +586,7 @@ let check program =
 		else
 			let se, env = exprToSexpr env e 
 			in
-			let typ = get_type_from_sexpr se 
+			let typ = typOFSexpr se 
 			in
 			let update_env = {
 					envClassMaps = env.envClassMaps;
@@ -633,8 +633,8 @@ let check program =
 		let allClassesM = getClassesForM classes inheritanceMap in(*all classes including inherited classes which have been dealed with according to methods*)
 		let classMethodMap = getClassMethodMap allClassesM in
 		let allClassmapsF = getClassmapForF classMaps inheritanceMap in(* classmap including inherited classes which have been dealed with according to field *)
-		let cmaps_inherited = add_inherited_methods allClassmapsF allClassesM classMethodMap in
-		cmaps_inherited, allClassesM
+		let finalMap = getFinalMap allClassmapsF allClassesM classMethodMap in
+		finalMap, allClassesM
 
 	and getInheritanceMap cdecls cmap = 
 		let handler a cdecl =
@@ -645,7 +645,7 @@ let check program =
 					else
 						[cdecl.cname]
 					in
-					Hashtbl.add predecessors s new_list; 
+					Hashtbl.add inheritanceRelation s new_list; 
 					(StringMap.add s new_list a) 
 			| 	NoParent 	-> a
 		in
@@ -732,7 +732,7 @@ let check program =
 
 	and getNewSonMethod father fatherMethods sonMethod = 
 		let replace fatherMethod sonMethodList = 
-			let get_root_cname = function
+			let getClassName = function
 				None -> Some(father)
 				| Some(x) -> Some(x)
 			in
@@ -743,7 +743,7 @@ let check program =
 					formals = sonMethod.formals;
 					body = sonMethod.body;
 					overrides = true;
-					rootcname = get_root_cname fatherMethod.rootcname;
+					rootcname = getClassName fatherMethod.rootcname;
 				} 
 			in
 			if (getMethodName fatherMethod) = (getMethodName sonMethod) 
@@ -820,7 +820,7 @@ let check program =
 		let newMap = StringMap.add son newSonMap oldMap in
 		newMap
 
-	and add_inherited_methods allClassmapsF allClassesM classMethodMap =
+	and getFinalMap allClassmapsF allClassesM classMethodMap =
 		let getCdecl cname = 
 			try List.find (fun cdecl -> cdecl.cname = cname) allClassesM
 			with | Not_found -> raise (Failure("Class not found!")) (*impossible, has been checked before*)
@@ -847,7 +847,7 @@ let check program =
 	in
 	
 	let appendConstructor fbody cname returnType =
-		let key = Hashtbl.find struct_indexes cname 
+		let key = Hashtbl.find strucIndexes cname 
 		in 
 		let thisInit = [SLocal(
 					returnType,
@@ -892,7 +892,7 @@ let check program =
 	let convertFuncToSfunc classMaps reserved classMap cname func=
 	
 		let appendMain fbodyStmt cname returnType = 
-			let key = Hashtbl.find struct_indexes cname in 
+			let key = Hashtbl.find strucIndexes cname in 
 			let thisInit = [SLocal(
 				returnType,
 				"this",
@@ -935,11 +935,11 @@ let check program =
 				Ast.Formal(Datatype(Objecttype(cname)), "this")
 		in
 
-		let env_param_helper m fname = match fname with 
+		let envAssistant m fname = match fname with 
 				Formal(d, s) -> (StringMap.add s fname m) 
 			| 	_ -> m
 		in
-		let env_params = List.fold_left env_param_helper StringMap.empty (classFormal :: func.formals) in
+		let env_params = List.fold_left envAssistant StringMap.empty (classFormal :: func.formals) in
 		let env = {
 			envClassMaps 	= classMaps;
 			envName     	= cname;
@@ -1003,9 +1003,9 @@ let check program =
 	let converttosast classMaps builtinFunctions cdecls = 
 	
 		let deConstructorBody cname = 
-			let ret_type = Datatype(Objecttype(cname)) in
+			let retyp = Datatype(Objecttype(cname)) in
 			let fbody = [] in
-			appendConstructor fbody cname ret_type
+			appendConstructor fbody cname retyp
 		in
 
 		let defaultSc cname = 

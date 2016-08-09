@@ -218,8 +218,8 @@ let translate sast =
 
 		| SBinop (e1, op, e2, d) -> 
 			let binop_gen e1 op e2 d llbuilder =
-				let type1 = Semant.get_type_from_sexpr e1 in
-				let type2 = Semant.get_type_from_sexpr e2 in
+				let type1 = Semant.typOFSexpr e1 in
+				let type2 = Semant.typOFSexpr e2 in
 				let e1 = expr_gen llbuilder e1 in
 				let e2 = expr_gen llbuilder e2 in	
 				let float_ops op e1 e2 =
@@ -289,7 +289,7 @@ let translate sast =
 
 		| SUnop (op, e, d)        -> 
 			let unop_gen op e d llbuilder =
-				let e_typ = Semant.get_type_from_sexpr e in
+				let e_typ = Semant.typOFSexpr e in
 				let e = expr_gen llbuilder e in
 				let unops op e_typ e = match (op, e_typ) with
 					  (Sub, Datatype(Int_t)) 	->  L.build_neg e "int_unoptmp" llbuilder
@@ -394,7 +394,7 @@ let translate sast =
 		let tmp_count = ref 0 in
 		let incr_tmp = fun x -> incr tmp_count in
 		let map_expr_to_printfexpr expr =
-			let exprType = Semant.get_type_from_sexpr expr in
+			let exprType = Semant.typOFSexpr expr in
 			match exprType with 
 			Datatype(Bool_t) ->
 				incr_tmp ();
@@ -416,7 +416,7 @@ let translate sast =
 			| _ -> expr_gen llbuilder expr
 		in
 		let params = List.map map_expr_to_printfexpr expr_list in
-		let param_types = List.map (Semant.get_type_from_sexpr) expr_list in 
+		let param_types = List.map (Semant.typOFSexpr) expr_list in 
 		let map_param_to_string = function 
 		  Arraytype(Char_t, 1) 	-> "%s"
 		| Datatype(Int_t) 		-> "%d"
@@ -432,7 +432,7 @@ let translate sast =
 		L.build_call printf (Array.of_list (s :: params)) "tmp" llbuilder
 
 	and sizeof_func_gen el llbuilder =
-		let type_of_sexpr = Semant.get_type_from_sexpr (List.hd el) in
+		let type_of_sexpr = Semant.typOFSexpr (List.hd el) in
 		let type_of_sexpr = get_llvm_type type_of_sexpr in
 		let size_of_typ = L.size_of type_of_sexpr in	
 		L.build_intcast size_of_typ i32_t "tmp" llbuilder
@@ -445,7 +445,7 @@ let translate sast =
 			| _ as t -> raise (Failure("cannot cast"))
 		in
 		let expr = List.hd el in
-		let t = Semant.get_type_from_sexpr expr in
+		let t = Semant.typOFSexpr expr in
 		let lhs = match expr with
 			| Sast.SId(id, d) -> id_gen false false id d llbuilder
 			| SObjAccess(e1, e2, d) -> obj_access_gen false e1 e2 d llbuilder
@@ -477,7 +477,7 @@ let translate sast =
 				with | Not_found -> raise (Failure("unknown variable id "^ id))
 
 	and assign_gen lhs rhs d llbuilder = 
-		let rhs_t = Semant.get_type_from_sexpr rhs in
+		let rhs_t = Semant.typOFSexpr rhs in
 		let lhs, isObjAccess = match lhs with
 			| Sast.SId(id, d) -> id_gen false false id d llbuilder, false
 			| SObjAccess(e1, e2, d) -> obj_access_gen false e1 e2 d llbuilder, true
@@ -593,13 +593,13 @@ let translate sast =
 					let ret = ret in
 					ret
 				| SObjAccess(e1, e2, d) 	-> 
-					let e1_type = Semant.get_type_from_sexpr e1 in
+					let e1_type = Semant.typOFSexpr e1 in
 					let e1 = check_rhs parent_expr parent_type e1 in
 					let e2 = check_rhs e1 e1_type e2 in
 					e2
 				| _ as e -> raise (Failure("invalid access"))
 		in 
-		let lhs_type = Semant.get_type_from_sexpr lhs in 
+		let lhs_type = Semant.typOFSexpr lhs in 
 		match lhs_type with
 			  Arraytype(_, _) -> 
 				let lhs = expr_gen llbuilder lhs in
@@ -693,7 +693,7 @@ let translate sast =
 		let scdecl_llvm_arr = L.build_array_alloca void_ppt (const_int i32_t len) "tmp" llbuilder in
 
 		let handle_scdecl scdecl = 
-			let index = Hashtbl.find Semant.struct_indexes scdecl.scname in
+			let index = Hashtbl.find Semant.strucIndexes scdecl.scname in
 			let len = List.length scdecl.sfuncs in
 			let sfdecl_llvm_arr = L.build_array_alloca void_pt (const_int i32_t len) "tmp" llbuilder in
 
