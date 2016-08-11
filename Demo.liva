@@ -1,0 +1,89 @@
+class hooray{
+	int a;
+	int b;
+
+	constructor(int x, int y)
+	{
+		this.a = x;
+		this.b = y;
+	}
+	
+	int fib(int x)
+	{
+		int z;
+		
+        if (x <2) z=1;
+		else z= this.fib(x-1) + this.fib(x-2);
+		
+        return (z);
+	}
+}
+
+class cheer extends hooray{
+
+	constructor(int x, int y)
+	{
+		this.a = x;
+		this.b = y;
+	}
+	
+	int gcd()
+	{
+		while(this.a != this.b){
+            if(this.a > y){
+                this.a = this.a - this.b;
+            }
+            else{
+                this.b = this.b - this.a;
+            }
+        }      
+        print ("gcd = ",this.a, "\n");
+	}
+
+	void an_array()
+	{
+		boolean flag;
+		int[] c = new int[10];
+		c[0] = this.b;
+		for(i = 1; i < 10; i = i + 1)
+		{
+			c[i] = 1 + 2 * c[i - 1];
+		}
+		for(i = 0; i < 10; i = i + 1)
+		{
+			c[i] = 1 + 2 * c[i - 1];
+			flag = true;
+			while(flag == true)
+			{
+				if(c[i] % 13 != 0)
+					c[i] = c[i] % 13;
+				else
+				{
+					flag = false;
+					print("c[", i, "]", " = ", c[i]);
+				}
+			}
+		}
+		return;
+	}
+}
+
+class interesting_program {
+    void main(){
+		class calculator[] a = new class calculator[4];
+		calculator[0] = new cheer(1,11);
+		calculator[1] = new cheer(2,22);
+		calculator[2] = new cheer(3,33);
+		calculator[3] = new cheer(4,44);
+		calculator[0].fib(10);
+		calculator[1].gcd();
+		calculator[2].an_array();
+		/*calculator[3]*/
+	}
+}
+
+
+
+
+
+
