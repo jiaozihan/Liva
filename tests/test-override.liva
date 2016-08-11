@@ -5,7 +5,6 @@ class myclass{
         z = x + y;
         return (z);
     }
-
 }
 
 class subclass extends myclass{
@@ -19,13 +18,11 @@ class subclass extends myclass{
 
 class test {
     void main(){
-        int x;
-        int y;
+        int x = 9;
+        int y = 6;
         int z;
-        x = 9;
-        y = 6;
 
-        class subclass obj = new subclass();
+        class myclass obj = new myclass();
         z = obj.calc(x, y);
 
         print ("z=",z);
