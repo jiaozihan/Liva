@@ -1,103 +1,67 @@
-Task : Hello World implementation
-Due Date: 8/1/2016
+The Liva compiler
 
+This is a compiler project based on MicroC and Dice. It is coded in OCaml and needs the Ocaml llvm library to run. 
 
 ------------------------------
-Installation under Ubuntu 15.10
-
-LLVM 3.6 is the default under 15.10, so we ask for a matching version of the
-OCaml library.
+LLVM Installation under Ubuntu 15.10
 
 sudo apt-get install -y ocaml m4 llvm opam
 opam init
 opam install llvm.3.6 ocamlfind
 eval `opam config env`
-
-
 ------------------------------
 
-Commands for testing hello-world:
+For installation under OS X, please refer to the MicroC compiler’s README file which can be found at http://www.cs.columbia.edu/~sedwards/classes/2016/4115-summer/index.html 
 
-make clean
-make liva
-./liva <test-hello.liva> test-hello.ll
+To run and test:
+$ make liva
+ocamlfind ocamlopt -c -package llvm ast.ml
+ocamlfind ocamlopt -c -package llvm sast.ml
+ocamlyacc parser.mly
+ocamlc -c ast.ml
+ocamlc -c parser.mli
+ocamlfind ocamlopt -c -package llvm parser.ml
+ocamllex scanner.mll
+127 states, 6605 transitions, table size 27182 bytes
+ocamlfind ocamlopt -c -package llvm scanner.ml
+ocamlfind ocamlopt -c -package llvm semant.ml
+ocamlfind ocamlopt -c -package llvm codegen.ml
+ocamlfind ocamlopt -c -package llvm liva.ml
+ocamlfind ocamlopt -linkpkg -package llvm -package llvm.analysis ast.cmx sast.cmx parser.cmx scanner.cmx semant.cmx codegen.cmx liva.cmx  -o liva
 
-lli test-hello.ll (it will show 'main' function not found in module. This is because functions are not declared yet!!!)
-
-
-------------------------------
-7/24/2016 RECORD
-
-
-The compiler structure is largely based on the Dice and MicroC compilers as they both provided excellent examples of how to use the llvm ocaml bindings. 
-
-1. For Dice Project, it uses Sast in Codegen, but in this file, it uses Ast, we could modify it to Sast once we figure out how to do this!
-
-2. Currently, only the class clarification and definition are done for the macro test.
-
-3. We need to implement the functions clarification, definitions, and built-in print function implementation at least to complete the Hello-World deliverable
-
-4. Semantic analysis is blank for the current stage; we need to finish it once we complete the hello-world Codegen file.  
-
-5. We need to polish the languages as much as possible.
-
-6. Please feel free to modify the files to improve it better.
-
-7. Need to set up a meeting on Monday (7/25/2016) to discuss each one's role on Codegen accomplishment.
-
-
-
---------------------------------
-7/25/2016 RECORD
+You may need run chmod +x testall.sh to unlock the shell script.
+$ ./testall.sh
+-n test-add...
+OK
+-n test-and...
+OK
+...
+-n fail-sub...
+OK
+-n fail-while1...
+OK
 
 
-Updates after 7/25/2016 meeting
+Write a small program and test it.
+test.liva:
+class calculator{
+    int addition(int x, int y){    
+        int z;
+        z = x + y;
+        return(z);
+    }
+}
 
-1. After discussion, we decided to implement the "Main" function first.
+class test {
+    void main(){
+        int result;
+        class calculator obj = new calculator();
+        result = obj.addition(31,79);
+        print ("result=",result,"\n");
+    } 
+}
 
-2. In order to implement the "Main" function, we need to introduce the semantic analysis to convert the AST to SAST. 
-
-3. Sub-tasks are semantic analysis to convert the AST to SAST*, main function implementation*, buit-in print function, expression implementation (function call), and statement implementation. 
-
-* IMPORTANT TASKS
-
-
-
---------------------------------
-7/27/2016 RECORD
-
-
-Updates after 7/27/2016 TA meeting
-
-1. Need to polish LRM before Monday 8/1/2016
-
-2. Asssign the roles to members: 
-Semantic analysis: Jiafei Song and Yanan Zhang
-Codegen: Zihan Jiao and Shanqi Lu
-
-3. Schedule a meetinng on Friday 7/29/2016 2pm to integrate the Congen and semant files for Hello-World project
-
-
---------------------------------
-7/29/2016 RECORD
-
-
-Add tests folder and shell scripts for testing.
-1 make liva
-2 chmod +x testall.sh
-3 ./testall.sh
-
-To test a specific file, pass the file name as a command line argument
-./testall.sh tests/test-hello.liva
-
---------------------------------
-7/30/2016 RECORD
-
-Get constructors work
---------------------------------
-Aug-05-2016 RECORD
-
-
-
-
+$ ./liva < test.liva > test.ll
+$ lli test.ll
+result=110
 
