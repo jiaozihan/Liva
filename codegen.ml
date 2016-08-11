@@ -389,7 +389,7 @@ let translate sast =
 
 		| SArrayAccess (e, el, d) -> arr_access_gen false e el d llbuilder
 
-		| SNoexpr -> L.build_add (const_int i32_t 0) (const_int i32_t 0) "nop" llbuilder
+		| SNoexpr -> L.build_add (L.const_int i32_t 0) (L.const_int i32_t 0) "nop" llbuilder
 		| _ -> raise(Failure("expression not match"))
 
 
@@ -705,7 +705,7 @@ let translate sast =
 				let fptr = L.build_pointercast fptr void_pt "tmp" llbuilder in
 
 				let ep = L.build_gep sfdecl_llvm_arr [| (const_int i32_t i) |] "tmp" llbuilder in
-				ignore(build_store fptr ep llbuilder);
+				ignore(L.build_store fptr ep llbuilder);
 			in 
 			List.iteri handle_fdecl scdecl.sfuncs;
 			total_len := !total_len + len;
@@ -717,11 +717,11 @@ let translate sast =
 
 		let c_index = param f 0 in
 		let f_index = param f 1 in
-		set_value_name "c_index" c_index;
-		set_value_name "f_index" f_index;
+		L.set_value_name "c_index" c_index;
+		L.set_value_name "f_index" f_index;
 
 		if !total_len == 0 then
-			build_ret (const_null rt) llbuilder
+			L.build_ret (const_null rt) llbuilder
 		else
 			let vtbl = L.build_gep scdecl_llvm_arr [| c_index |] "tmp" llbuilder in
 			let vtbl = L.build_load vtbl "tmp" llbuilder in
