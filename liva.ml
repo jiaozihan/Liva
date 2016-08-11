@@ -14,7 +14,7 @@ let _ =
   else Compile in
   let lexbuf = Lexing.from_channel stdin in
   let ast = Parser.program Scanner.token lexbuf in
-  let sast = Semant.check ast in sast;
+  let sast = Semant.check ast in ();
 
   match action with
     Ast -> print_string ("not implemented")

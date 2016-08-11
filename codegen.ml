@@ -14,8 +14,8 @@ open Llvm
 open Hashtbl
 
 open Ast
-open Sast
 open Semant
+open Sast
 
 module L = Llvm
 
@@ -75,7 +75,7 @@ let translate sast =
 
 	let classes = sast.classes in
 	let functions = sast.functions in
-    let main =sast.main in 
+    let main = sast.main in 
 	
 	let util_func () = 
 		let printf_typ = L.var_arg_function_type i32_t [| pointer_type i8_t |] in
@@ -120,9 +120,13 @@ let translate sast =
 		let fname = sfdecl.sfname in
 		let is_var_arg =ref false in 
 		let parameters = List.rev ( List.fold_left 
-		(fun l -> (function 
-			Formal (t,_)-> get_llvm_type t::l 
-		      | _ -> is_var_arg = ref true; l))[]  sfdecl.sformals)	
+		(fun l -> 
+			(function 
+			  Formal (t,_)-> get_llvm_type t::l 
+			| _ -> ignore(is_var_arg = ref true); l
+			)
+		)
+		[]  sfdecl.sformals)	
 		in 
 
 		let fty = 
@@ -386,7 +390,7 @@ let translate sast =
 		| SArrayAccess (e, el, d) -> arr_access_gen false e el d llbuilder
 
 		| SNoexpr -> L.build_add (const_int i32_t 0) (const_int i32_t 0) "nop" llbuilder
-		| _  as  e -> raise(Failure("expression not match"))
+		| _ -> raise(Failure("expression not match"))
 
 
 	and print_func_gen expr_list llbuilder = 
@@ -442,7 +446,7 @@ let translate sast =
 			  Datatype(Objecttype(x)) -> 
 				let obj_type = get_llvm_type (Datatype(Objecttype(x))) in 
 				L.build_pointercast lhs obj_type "tmp" llbuilder
-			| _ as t -> raise (Failure("cannot cast"))
+			| _ -> raise (Failure("cannot cast"))
 		in
 		let expr = List.hd el in
 		let t = Semant.typOFSexpr expr in
@@ -507,7 +511,7 @@ let translate sast =
 	and for_gen start cond step body llbuilder = 
 		let preheader_bb = L.insertion_block llbuilder in
 		let the_function = L.block_parent preheader_bb  in
-		let start_val= expr_gen llbuilder start in
+		let _ = expr_gen llbuilder start in
 		let loop_bb = L.append_block context "loop" the_function in
 		let step_bb = L.append_block context "step" the_function in	
 		let cond_bb = L.append_block context "cond" the_function in
@@ -557,7 +561,7 @@ let translate sast =
 		let check_lhs = function
 			  SId(s, d) -> id_gen false false s d llbuilder
 			| SArrayAccess(e, el, d) -> arr_access_gen false e el d llbuilder
-			| se -> raise (Failure("check lhd error"))
+			| _ -> raise (Failure("check lhd error"))
 		in
 
 		let rec check_rhs parent_expr parent_type = 
@@ -592,12 +596,12 @@ let translate sast =
 					let ret = obj_func_gen param_ty fptr parent_expr el d llbuilder in
 					let ret = ret in
 					ret
-				| SObjAccess(e1, e2, d) 	-> 
+				| SObjAccess(e1, e2, _) 	-> 
 					let e1_type = Semant.typOFSexpr e1 in
 					let e1 = check_rhs parent_expr parent_type e1 in
 					let e2 = check_rhs e1 e1_type e2 in
 					e2
-				| _ as e -> raise (Failure("invalid access"))
+				| _ -> raise (Failure("invalid access"))
 		in 
 		let lhs_type = Semant.typOFSexpr lhs in 
 		match lhs_type with
@@ -667,8 +671,7 @@ let translate sast =
 	let build_main main =
 		Hashtbl.clear local_var_table;
 		Hashtbl.clear formals_table;
-		let fname = string_of_fname main.sfname in 
-	        let fty = L.function_type i32_t[||] in 
+	    let fty = L.function_type i32_t[||] in 
 		let f = L.define_function "main" fty the_module in 	
 		let llbuilder = L.builder_at_end context (L.entry_block f) in
 		
