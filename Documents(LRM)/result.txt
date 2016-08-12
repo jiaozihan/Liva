@@ -1,0 +1,659 @@
+fail-add.liva: 
+class arith {
+	void main() 
+	{
+		int i;
+		i = "1" + 1;
+		print(i);
+	}
+}
+______________
+fail-array_access.liva: 
+class test {
+	void main() {
+		char b = 'a'; 
+		float[] a = new float[10];
+		print(a[b]);
+	}
+}
+______________
+fail-array_access2.liva: 
+class test {
+	void main() {
+		float[] a = new float[10];
+		print(a[1][1]);
+	}
+}
+______________
+fail-array_init.liva: 
+class test {
+	void main() {
+		float[] a = new float[10.0];
+	}
+}
+______________
+fail-diff.liva: 
+class arith {
+	void main() 
+	{
+		int i;
+		i = "1" - 1;
+		print(i);
+	}
+}
+______________
+fail-div.liva: 
+class arith {
+	void main() 
+	{
+		int i;
+		i = "4" / 2;
+		print(i);
+	}
+}
+
+______________
+fail-equal1.liva: 
+class test {
+  void main(){
+	float i = 1.0;
+	if (i == 1.0) print(42); 
+	else print(8);
+
+  }	
+}
+______________
+fail-equal2.liva: 
+class test {
+  void main(){
+	float i = "123";
+	if (i == true) print(42); 
+	else print(8);
+
+  }	
+}
+______________
+fail-for1.liva: 
+class test {
+
+
+  void main(){
+
+
+
+  int i;
+ 
+ 
+
+  for (i = 0 ; i = 10 ; i = i + 1) {
+  
+  print(i);
+	  }
+
+  }	
+}
+
+______________
+fail-function.liva: 
+class myclass{
+
+    int calc (int x, int y){
+
+        int z;
+        z = x + y;
+        return (z);
+    }
+}
+
+class test {
+
+    void main(){
+        int x = 9;
+		int y = 6;
+        int z;
+
+        class myclass obj = new myclass();
+        z = obj.ca_lc(x, y);
+
+        print ("z=",z);
+    } 
+}
+
+
+
+
+
+
+
+
+
+
+
+
+______________
+fail-function2.liva: 
+class myclass{
+
+    int calc (int x, int y){
+
+        int z;
+        z = x + y;
+        return (z);
+    }
+}
+
+class test {
+
+    void main(){
+        int x = 9;
+		int y = 6;
+        int z;
+
+        class myclass obj = new myclass();
+        z = obj.calc(x, x, y);
+
+        print ("z=",z);
+    } 
+}
+
+
+
+
+
+
+
+
+
+
+
+
+______________
+fail-function3.liva: 
+class myclass{
+
+    int calc (int x, int y){
+
+        int z;
+        z = x + y;
+        return (z);
+    }
+}
+
+class test {
+
+    void main(){
+        int x = 9;
+		float y = 6.0;
+        float z;
+
+        class myclass obj = new myclass();
+        z = obj.calc(x, y);
+
+        print ("z=",z);
+    } 
+}
+
+______________
+fail-hello.liva: 
+class test {
+
+    print ("Hello World!");
+
+    void main(){
+    
+    }
+}
+
+______________
+fail-hello2.liva: 
+class test {
+    void main(){
+        int a ;
+        int b ;
+        a=1.1;
+        b=3;
+        print ("multiple ", "params!", "\n", a, "\n" ,b, "\n");
+    } 
+}
+______________
+fail-if1.liva: 
+class test {
+
+  void main(){
+
+	if ("123") print(42); 
+
+  }	
+}
+
+______________
+fail-mod.liva: 
+class arith {
+	void main() 
+	{
+		int i;
+		i = "4" % 3;
+		print(i);
+	}
+}
+______________
+fail-mul.liva: 
+class arith {
+	void main() 
+	{
+		int i;
+		i = "15" * 5;
+		print(i);
+	}
+}
+______________
+fail-not.liva: 
+class test {
+  void main(){
+	int i = 1;
+	boolean j;
+	j = !(i + 1);
+  }	
+}
+______________
+fail-obj_access.liva: 
+class test {
+	void main() {
+		int a;
+		a.amethod;
+	}
+}
+______________
+fail-obj_access2.liva: 
+class test {
+	void main() {
+		int a;
+		(1+1).amethod;
+	}
+}
+______________
+fail-obj_access3.liva: 
+class myclass{
+    int a;
+    constructor(int x){
+        this.a = x;
+    }
+}
+
+class test {
+
+    void main(){
+        class myclass obj = new myclass(10);
+		print ("b=",obj.b);
+    }
+}
+______________
+fail-sub.liva: 
+class test {
+  void main(){
+	int j;
+	j = -(true);
+	print(j);
+  }	
+}
+______________
+fail-while1.liva: 
+class test {
+	void main() {
+	  int i;
+	  i = 5;
+	  while (i = 1) {
+	    print(i);
+	    i = i - 1;
+	  }
+	  print(42);
+	}
+}
+
+______________
+test-add.liva: 
+class arith {
+	void main() 
+	{
+		int i;
+		i = 1 + 1;
+		print(i);
+	}
+}
+______________
+test-and.liva: 
+class test {
+  void main(){
+	int i = 1;
+	int j = 3;
+	if (i == 1 & j == 3)
+	{
+		print(i, " ", j, "\n");
+	}
+  }	
+}
+______________
+test-arith.liva: 
+class arith {
+	void main() 
+	{
+		int i;
+		i = 1 + 3 * 4 % 7 - 4 / 2;
+		print(i);
+	}
+}
+______________
+test-array.liva: 
+class test {
+	void main() {
+		float[] a = new float[10];
+		int[] b = new int[10];
+		int i;
+		a[0] = 1.0;
+		b[0] = 1;
+		for(i = 1; i < 10; i = i + 1)
+		{
+			a[i] = a[i - 1] + 1.0;
+			b[i] = b[i - 1] + 1;
+		}
+        for(i = 0; i < 10; i = i + 1)
+			print("a[",i,"]"," = ",a[i]," , ", "b[",i,"]"," = ",b[i], "\n");
+	}
+}
+______________
+test-array_object.liva: 
+class calculator{
+    int g;
+    int addition(int x, int y){    
+        this.g =9;
+        int z;
+        z = x + y;
+        return(z);
+    }
+}
+
+class test {
+	void main() {
+		class calculator c = new calculator();
+		class calculator[] a = new class calculator[10];
+		a[0] = c;
+		print(a[0].addition(1,1));
+	}
+}
+______________
+test-comments.liva: 
+class test {
+  void main(){
+	float i = 1.111;
+	/*HAHAHAHA
+		/* print(i);*/
+	  BOOOO!%$#$^%^&^%g)__*%^#@...
+	*/
+	print(i);
+  }	
+}
+______________
+test-constructor.liva: 
+class myclass{
+    int a;
+    constructor(int x){
+        this.a = x;
+    }
+
+}
+
+class test {
+    void main(){
+
+        class myclass obj = new myclass(10);
+
+        print ("a=",obj.a);
+    } 
+}
+
+
+
+
+
+
+
+______________
+test-diff.liva: 
+class arith {
+	void main() 
+	{
+		float i;
+		i = 1.3 - 1.0;
+		print(i);
+	}
+}
+
+______________
+test-div.liva: 
+class arith {
+	void main() 
+	{
+		int i;
+		i = 4 / 2;
+		print(i);
+	}
+}
+
+______________
+test-equal.liva: 
+class test {
+  void main(){
+	int i = 1;
+	if (i == 1) print(42); 
+	else print(8);
+
+  }	
+}
+______________
+test-fib.liva: 
+class test {
+
+	int fib (int x){
+        int z;
+        if (x <2) z=1;
+	else z= this.fib(x-1) + this.fib(x-2);
+        return (z);
+        }
+    
+    void main(){
+        int x;
+        int y;
+        int z;
+	int m;
+        x = 5;
+        y = 6;
+        z = this.fib (x);
+	
+	print (z);
+        
+
+        
+    } 
+}
+
+
+______________
+test-for1.liva: 
+class test {
+
+
+  void main(){
+
+
+
+  int i;
+ 
+ 
+
+  for (i = 0 ; i < 10 ; i = i + 1) {
+  
+  print(i);
+	  }
+ 
+
+	
+
+  }	
+}
+
+______________
+test-for_nest.liva: 
+class test {
+  void main(){
+	int i;
+	int j;
+	for(i = 0; i < 10; i = i + 1)
+		for(j = 11; j < 13; j = j + 1)
+			print("i = ", i, " ", "j = ", j, "\n");
+  }	
+}
+______________
+test-function.liva: 
+class myclass{
+
+    int calc (int x, int y){
+        int z;
+        z = x + y;
+        return (z);
+    }
+
+}
+
+
+class test {
+    void main(){
+        int x;
+        int y;
+        int z;
+        x = 9;
+        y = 6;
+
+        class myclass obj = new myclass();
+        z = obj.calc(x, y);
+
+        print ("z=",z);
+    } 
+}
+
+
+
+
+
+
+
+______________
+test-gcd.liva: 
+class gcd {
+    void main(){
+        int x;
+        int y;
+        int z;
+        x = 66;
+        y = 98;
+
+        while(x != y){
+            if(x > y){
+                x = x - y;
+            }
+            else{
+                y = y - x;
+            }
+        }      
+        print ("gcd=",x);
+    } 
+}
+
+
+
+
+
+
+
+______________
+test-geq.liva: 
+class test {
+  void main(){
+	int i = 1;
+	int j = 1;
+	if (i >= j) print("yes");
+	else print("no");
+
+  }	
+}
+
+______________
+test-gt.liva: 
+class test {
+  void main(){
+	int i = 4;
+	int j = 1;
+	if (i > j) print(4);
+	else print(8);
+
+  }	
+}
+______________
+test-hello.liva: 
+class test {
+
+  void main(){
+
+    print ("Hello World!");
+
+  }	
+}
+
+______________
+test-hello2.liva: 
+class test {
+    void main(){
+        int a ;
+        int b ;
+        a=1;
+        b=3;
+        print ("multiple ", "params!", "\n", a, "\n" ,b, "\n");
+    } 
+}
+______________
+test-if1.liva: 
+class test {
+
+  void main(){
+
+
+    
+
+
+    	print (100);
+
+	if (true) print(42); 
+	else print(8);
+  	print(17);
+
+
+
+
+	
+
+  }	
+}
+
+______________
+test-if_nest.liva: 
+class test {
+  void main(){
+	int i = 1;
+	int j = 3;
+	if (true)
+	{
+		if(i == 1)
+		{
+			if(i < j)
+			{
+				print(j);
+			}
