@@ -1,0 +1,6 @@
+Zihan Jiao: The most important thing I learned from this project is how to use Github to work together. I've never done such a large project like LIVA on Github. I think Gitbub is really a clear and efficient tool for team coding.
+
+In addition, having a consistent coding style and naming convention is really important for a project team. Block comments above
+function definitions are critical. Wear sunscreen. Variable and function names should tell the reader what it is used for.
+
+Ocaml is also a interesting programming language for me. Functional programming is impressive.
