@@ -1,0 +1,4 @@
+### Starting build.
+# Target: D:\Program Files\Git\Liva\fortest\_build, tags: {  }
+rm -Rf 'D:\Program Files\Git\Liva\fortest\_build'
+# Compilation unsuccessful.
